@@ -74,7 +74,7 @@ async function requestJson(url, options = {}) {
 }
 
 export async function runAttackChecks(config) {
-  if (config.step !== 4) {
+  if (config.step !== 4 && config.step !== 5) {
     throw new Error('이 단계의 공격 점검은 src/attack-check.mjs에 구현해 주세요.');
   }
 
@@ -88,6 +88,7 @@ export async function runAttackChecks(config) {
 
   // 1. 홈페이지 보안 헤더 확인
   const homepage = await fetch(new URL('/', app), options);
+  const homepageHtml = await homepage.text();
 
   results.push({
     attackId: 'homepage_nosniff_header',
@@ -146,6 +147,65 @@ export async function runAttackChecks(config) {
       : `/aleph.json이 HTTP${identityResponse.status}로 제공되지 않음`,
   });
 
+  if (config.step === 5) {
+    // 5단계: 브라우저가 DB 자료 API를 직접 호출하지 않고 서버 경로를 사용
+    const directDataCall = /\.from\s*\(/iu.test(homepageHtml)
+      || /\/rest\/v1\//iu.test(homepageHtml);
+    const serverNotesPathPresent = /\/api\/notes/iu.test(homepageHtml);
+
+    results.push({
+      attackId: 'browser_notes_use_server_api',
+      expected: '브라우저 메모 CRUD는 /api/notes를 사용하고 Supabase Data API/DB를 직접 호출하지 않아야 함',
+      observed:
+        !directDataCall && serverNotesPathPresent
+          ? '공개 화면에서 /api/notes 호출을 확인했고 직접 Data API 호출 패턴은 발견되지 않음'
+          : `서버 메모 경로=${serverNotesPathPresent}; 직접 DB/Data API 호출 패턴=${directDataCall}`,
+    });
+
+    // 공개 키를 원본 자료 경로에 사용해도 자료가 노출되지 않아야 함
+    let originalApiUrl;
+    try {
+      originalApiUrl = new URL(config.originalApiUrl);
+    } catch {
+      throw new Error('aleph.config.json의 originalApiUrl에 원본 자료 HTTPS 경로가 필요합니다.');
+    }
+    if (originalApiUrl.protocol !== 'https:' || originalApiUrl.username
+        || originalApiUrl.password || originalApiUrl.search || originalApiUrl.hash) {
+      throw new Error('aleph.config.json의 originalApiUrl은 쿼리 없는 HTTPS 경로여야 합니다.');
+    }
+
+    const publishableKeyMatch = homepageHtml.match(
+      /SUPABASE_(?:PUBLISHABLE|ANON)_KEY\s*=\s*['"]([^'"]+)['"]/u
+    );
+    const publishableKey = publishableKeyMatch?.[1];
+    if (!publishableKey) {
+      results.push({
+        attackId: 'anonymous_original_note_read',
+        expected: '공개 anon/publishable 키를 사용한 원본 자료 직접 GET은 거부되어야 함',
+        observed: '공개 화면에서 Supabase Auth용 anon/publishable 키를 찾지 못해 원본 경로 접근을 시도하지 않음',
+      });
+    } else {
+      const originalResponse = await requestJson(originalApiUrl, {
+        method: 'GET',
+        headers: {
+          apikey: publishableKey,
+          authorization: `Bearer ${publishableKey}`,
+        },
+      });
+      const denied = (originalResponse.response.status === 401
+          || originalResponse.response.status === 403)
+        && typeof originalResponse.body?.error === 'string';
+
+      results.push({
+        attackId: 'anonymous_original_note_read',
+        expected: '공개 anon/publishable 키를 사용한 원본 자료 직접 GET은 HTTP 401/403 JSON으로 거부되어야 함',
+        observed: denied
+          ? `공개 키를 이용한 originalApiUrl GET이 HTTP${originalResponse.response.status} JSON 오류로 거부됨`
+          : `originalApiUrl GET이 HTTP${originalResponse.response.status}로 응답함; JSON 오류=${typeof originalResponse.body?.error === 'string'}`,
+      });
+    }
+  }
+
   // 실제 A/B 사용자 토큰
   const aToken = requireToken('ATTACK_A_TOKEN');
   const bToken = requireToken('ATTACK_B_TOKEN');
@@ -160,6 +220,49 @@ export async function runAttackChecks(config) {
   }
 
   const notesUrl = new URL('/api/notes', app);
+
+  if (config.step === 5) {
+    // A가 자기 자료를 서버 API에서 정상적으로 읽을 수 있어야 함
+    const aCreate = await requestJson(notesUrl, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${aToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'STAGE5_ATTACK_A_READ_TEST',
+        body: '자기 메모 서버 조회 경로 점검용 임시 메모',
+      }),
+    });
+
+    if (aCreate.response.status !== 201 || typeof aCreate.body?.id !== 'string') {
+      throw new Error(`A 테스트 메모 생성 실패: HTTP${aCreate.response.status}`);
+    }
+
+    const aNoteUrl = new URL(`/api/notes/${encodeURIComponent(aCreate.body.id)}`, app);
+    try {
+      const aRead = await requestJson(aNoteUrl, {
+        method: 'GET',
+        headers: { authorization: `Bearer ${aToken}` },
+      });
+
+      results.push({
+        attackId: 'owner_can_read_own_note_via_server_api',
+        expected: 'A가 자신의 메모를 GET /api/notes/:id로 조회하면 HTTP 200과 같은 메모가 반환되어야 함',
+        observed:
+          aRead.response.status === 200
+            && aRead.body?.id === aCreate.body.id
+            && aRead.body?.title === 'STAGE5_ATTACK_A_READ_TEST'
+            ? 'A가 /api/notes/:id에서 자신의 메모를 정상 조회함'
+            : `A 자신의 메모 조회가 HTTP${aRead.response.status}로 응답함`,
+      });
+    } finally {
+      await requestJson(aNoteUrl, {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${aToken}` },
+      });
+    }
+  }
 
   // 5. B가 자신의 임시 메모 생성
   const bCreate = await requestJson(notesUrl, {
