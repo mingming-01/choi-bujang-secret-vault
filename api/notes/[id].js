@@ -54,17 +54,23 @@ export default async function handler(request, response) {
     return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
   }
 
-  let client;
+  let currentService;
   try {
-    const service = getService();
-    const user = await service.verifyLogin(authorization);
-    if (!user || user.kind !== 'student') {
-      return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
-    }
-    client = service.supabase;
+    currentService = getService();
   } catch {
     return response.status(500).json({ error: 'NOTES_SERVICE_UNAVAILABLE' });
   }
+
+  let user;
+  try {
+    user = await currentService.verifyLogin(authorization);
+  } catch {
+    return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
+  }
+  if (!user || user.kind !== 'student') {
+    return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
+  }
+  const client = currentService.supabase;
 
   const id = request.query?.id;
   if (typeof id !== 'string' || !UUID.test(id)) {
@@ -74,7 +80,10 @@ export default async function handler(request, response) {
   if (request.method === 'GET') {
     try {
       const { data, error } = await client.from('user_notes')
-        .select('id, title, content').eq('id', id).maybeSingle();
+        .select('id, title, content')
+        .eq('id', id)
+        .eq('owner_id', user.userId)
+        .maybeSingle();
       if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
       if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
       return response.status(200).json({ id: data.id, title: data.title, body: data.content });
@@ -87,10 +96,12 @@ export default async function handler(request, response) {
     const body = readBody(request);
     if (!validNote(body)) return response.status(400).json({ error: 'INVALID_NOTE' });
     try {
-      // 3단계에서는 의도적으로 owner_id 조건을 적용하지 않습니다. 4단계에서 보완합니다.
       const { data, error } = await client.from('user_notes')
-        .update({ title: body.title.trim(), content: body.body })
-        .eq('id', id).select('id, title, content').maybeSingle();
+        .update({ owner_id: user.userId, title: body.title.trim(), content: body.body })
+        .eq('id', id)
+        .eq('owner_id', user.userId)
+        .select('id, title, content')
+        .maybeSingle();
       if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
       if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
       return response.status(200).json({ id: data.id, title: data.title, body: data.content });
@@ -100,9 +111,12 @@ export default async function handler(request, response) {
   }
 
   try {
-    // 3단계에서는 의도적으로 owner_id 조건을 적용하지 않습니다. 4단계에서 보완합니다.
     const { data, error } = await client.from('user_notes')
-      .delete().eq('id', id).select('id').maybeSingle();
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', user.userId)
+      .select('id')
+      .maybeSingle();
     if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
     if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
     return response.status(200).json({ id: data.id });

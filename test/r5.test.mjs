@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { deploymentIdentity } from '../scripts/deployment-identity.mjs';
 
 const config = {
-  step: 3,
+  step: 4,
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
   sampleMarker: 'SAMPLE_NOTE_1',
   publicAppUrl: 'https://student-defense.vercel.app',
@@ -30,10 +30,10 @@ function mockResponse() {
   };
 }
 
-test('배포 식별 정보는 3단계 설정도 허용하고 단계 번호를 기록한다', () => {
+test('배포 식별 정보는 4단계 설정도 허용하고 단계 번호를 기록한다', () => {
   assert.deepEqual(deploymentIdentity(env, config), {
     schema: 'aleph.defense.deployment.v1',
-    step: 3,
+    step: 4,
     repoUrl: 'https://github.com/student-a/aleph-defense',
     commit: 'a'.repeat(40),
     publicAppUrl: 'https://student-defense-123.vercel.app',
@@ -45,7 +45,7 @@ test('배포 식별 정보는 3단계 설정도 허용하고 단계 번호를 �
   assert.throws(() => deploymentIdentity(env, { ...config, step: 13 }));
 });
 
-test('3단계 화면은 공식 SDK 인증 UI와 API 흐름을 제공하고 정적 data.json을 호출하지 않는다', async () => {
+test('4단계 화면은 공식 SDK 로그인과 보호된 메모 API를 유지하고 정적 data.json을 호출하지 않는다', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.match(html, /@supabase\/supabase-js/u);
   assert.match(html, /signInWithPassword/u);
@@ -53,6 +53,7 @@ test('3단계 화면은 공식 SDK 인증 UI와 API 흐름을 제공하고 정�
   assert.match(html, /fetch\('\/api\/notes'/u);
   assert.doesNotMatch(html, /fetch\('\/data\.json'/u);
   assert.match(html, /Authorization: `Bearer \$\{session\.access_token\}`/u);
+  assert.match(html, /본인 소유의 가상 메모만/u);
 });
 
 test('메모 목록 API는 인증 없는 요청을 HTTP 401 및 JSON 오류로 거부한다', async () => {
@@ -82,7 +83,7 @@ test('메모 단건 API도 토큰 없는 GET을 JSON 401로 거부한다', async
 
 test('Supabase 설정과 허용 경로는 secret을 포함하지 않고 Supabase Auth 발급자와 일치한다', async () => {
   const settings = JSON.parse(await readFile(new URL('../aleph.config.json', import.meta.url), 'utf8'));
-  assert.equal(settings.step, 3);
+  assert.equal(settings.step, 4);
   assert.deepEqual(settings.allowedRoutes, [
     '/api/notes (GET, POST)',
     '/api/notes/:id (GET, PUT, DELETE)',
@@ -94,13 +95,32 @@ test('Supabase 설정과 허용 경로는 secret을 포함하지 않고 Supabase
   assert.doesNotMatch(JSON.stringify(settings.identityProvider), /secret|service_role|sb_secret/iu);
 });
 
-test('SQL 준비 파일은 기존 학습 자료를 바꾸지 않고 사용자 메모 테이블만 준비한다', async () => {
-  const sql = await readFile(new URL('../supabase/step-3-user-notes.sql', import.meta.url), 'utf8');
-  assert.match(sql, /create table if not exists public\.user_notes/u);
-  assert.match(sql, /owner_id uuid not null/u);
-  assert.match(sql, /alter table public\.user_notes enable row level security/u);
-  assert.match(sql, /revoke all privileges on table public\.user_notes from public, anon, authenticated/u);
-  assert.doesNotMatch(sql, /drop table|delete from public\.learning_notes|truncate public\.learning_notes/iu);
+test('기존 learning_notes와 CRUD user_notes 구조를 보존하는 SQL 파일이 준비되어 있다', async () => {
+  const seedSql = await readFile(new URL('../supabase/step-4-owned-notes-seed.sql', import.meta.url), 'utf8');
+  const policySql = await readFile(new URL('../supabase/step-4-user-notes-rls.sql', import.meta.url), 'utf8');
+  assert.match(seedSql, /lower\(email\) = lower\('gjals0318@gmail\.com'\)/u);
+  assert.match(seedSql, /lower\(email\) = lower\('example@gmail\.com'\)/u);
+  assert.match(seedSql, /set owner_id = a_user_id/u);
+  assert.match(seedSql, /values \(b_user_id, sample_title, sample_content\)/u);
+  assert.doesNotMatch(seedSql, /auth\.users[\s\S]{0,100}references/iu);
+  for (const table of ['learning_notes', 'user_notes']) {
+    assert.match(policySql, new RegExp(`alter table public\\.${table} enable row level security`, 'u'));
+    assert.match(policySql, new RegExp(`revoke all privileges on table public\\.${table}`, 'u'));
+  }
+
+  assert.match(
+    policySql,
+    /grant select on table public\.learning_notes to authenticated/u
+  );
+
+  assert.match(
+    policySql,
+    /grant select, insert, update, delete on table public\.user_notes to authenticated/u
+  );
+  assert.match(policySql, /using \(auth\.uid\(\) = owner_id\)/u);
+  assert.match(policySql, /with check \(auth\.uid\(\) = owner_id\)/u);
+  assert.match(policySql, /information_schema\.role_table_grants/u);
+  assert.match(policySql, /has_table_privilege/u);
 });
 
 test('단건 PUT과 DELETE도 인증 없이 메모에 접근할 수 없다', async () => {
@@ -114,13 +134,26 @@ test('단건 PUT과 DELETE도 인증 없이 메모에 접근할 수 없다', asy
   }
 });
 
-test('신규 메모 owner_id는 서버 검증자에서만 제공되고 단건 경로에는 owner 필터가 없다', async () => {
+test('모든 사용자 메모 경로는 검증된 소유자 ID로 필터링하고 소유권 변경을 허용하지 않는다', async () => {
   const collection = await readFile(new URL('../api/notes.js', import.meta.url), 'utf8');
   const single = await readFile(new URL('../api/notes/[id].js', import.meta.url), 'utf8');
-  assert.match(collection, /owner_id:\s*user\.userId/u);
-  assert.doesNotMatch(collection, /body\.owner_id/u);
   assert.match(collection, /createLoginVerifier/u);
   assert.match(single, /createLoginVerifier/u);
-  assert.match(single, /\.eq\('id', id\)/u);
-  assert.doesNotMatch(single, /\.eq\('owner_id'/u);
+  assert.match(collection, /\.eq\('owner_id', user\.userId\)/u);
+  assert.match(collection, /owner_id:\s*user\.userId/u);
+  assert.doesNotMatch(collection, /body\.owner_id/u);
+  assert.match(single, /\.eq\('id', id\)[\s\S]*?\.eq\('owner_id', user\.userId\)/u);
+  assert.match(single, /\.update\(\{ owner_id: user\.userId,/u);
+  assert.match(single, /\.delete\(\)[\s\S]*?\.eq\('owner_id', user\.userId\)/u);
+  assert.doesNotMatch(single, /request\.body\.owner_id|body\.owner_id/u);
+});
+
+test('3단계 보안 헤더와 /data.json 차단 빌드 동작을 보존한다', async () => {
+  const vercel = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  const build = await readFile(new URL('../scripts/build-public.mjs', import.meta.url), 'utf8');
+  assert.ok(vercel.headers.some(rule => rule.source === '/' && rule.headers.some(header =>
+    header.key === 'X-Content-Type-Options' && header.value === 'nosniff')));
+  assert.match(build, /config\.step === 1/u);
+  assert.match(build, /await unlink\(output\)/u);
+  assert.match(build, /public', 'aleph\.json'/u);
 });

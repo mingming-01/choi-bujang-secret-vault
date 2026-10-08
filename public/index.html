@@ -34,9 +34,9 @@
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 3단계 인증 자료실</div>
+    <div class="eyebrow">BYTE BACK · 4단계 소유권 보호</div>
     <h1>점령된 자료실</h1>
-    <p>Supabase Auth 이메일·비밀번호로 로그인하면 로그인 사용자의 가상 메모를 관리할 수 있습니다.</p>
+    <p>Supabase Auth 이메일·비밀번호로 로그인하면 본인 소유의 가상 메모만 관리할 수 있습니다.</p>
 
     <section class="panel" aria-labelledby="auth-heading">
       <h2 id="auth-heading">로그인</h2>
@@ -51,7 +51,7 @@
     </section>
 
     <section id="workspace" hidden>
-      <div class="notice">3단계에서는 로그인 토큰을 서버에서 검증하지만 타인의 메모인지 확인하는 소유권 검사는 아직 하지 않습니다. B는 UUID를 알고 있으면 A의 메모를 변경할 수 있는 허점이 남아 있으며, 4단계에서 수정합니다. 실제 자료를 저장하지 마세요.</div>
+      <div class="notice">4단계에서 메모 소유권을 확인합니다. 사용자 메모와 기존 학습 메모는 로그인한 계정에 연결된 자료만 반환되며, 다른 계정의 메모는 조회·수정·삭제할 수 없습니다. 실제 자료를 저장하지 마세요.</div>
       <section class="panel" aria-labelledby="editor-heading">
         <h2 id="editor-heading">가상 메모 작성</h2>
         <form id="note-form">
@@ -69,8 +69,8 @@
     </section>
 
     <section aria-labelledby="samples-heading">
-      <h2 id="samples-heading">기존 학습용 가상 메모</h2>
-      <p>2단계의 네 메모는 그대로 보존되며, 로그인된 자료 API에서 서버를 통해 읽습니다.</p>
+      <h2 id="samples-heading">내 계정에 연결된 학습용 가상 메모</h2>
+      <p>기존 학습 메모도 owner_id로 구분해 본인 소유의 행만 표시합니다.</p>
       <ul id="samples" aria-live="polite"><li>로그인 후 자료를 불러옵니다.</li></ul>
     </section>
   </main>
@@ -122,7 +122,7 @@
     function renderCards(list, items, { editable = false, samples = false } = {}) {
       if (!Array.isArray(items) || !items.length) {
         const empty = document.createElement('li');
-        empty.textContent = samples ? '보존된 가상 메모가 없습니다.' : '아직 작성한 메모가 없습니다.';
+        empty.textContent = samples ? '이 계정에 연결된 학습 메모가 없습니다.' : '아직 작성한 메모가 없습니다.';
         list.replaceChildren(empty);
         return;
       }
@@ -198,7 +198,7 @@
         notesList.append(note);
         samplesList.replaceChildren();
         const sample = document.createElement('li');
-        sample.textContent = '로그인 후 기존 가상 메모를 불러옵니다.';
+        sample.textContent = '로그인 후 계정별 가상 메모를 불러옵니다.';
         samplesList.append(sample);
         resetEditor();
         return;

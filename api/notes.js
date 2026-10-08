@@ -104,10 +104,14 @@ export default async function handler(request, response) {
 
   if (request.method === 'GET') {
     try {
-      const [{ data: notes, error: notesError }, { data: samples, error: samplesError }] = await Promise.all([
+      const [
+        { data: notes, error: notesError },
+        { data: samples, error: samplesError },
+      ] = await Promise.all([
         client.from('user_notes').select('id, title, content')
           .eq('owner_id', user.userId).order('created_at', { ascending: true }),
-        client.from('learning_notes').select('id, title, content').order('id', { ascending: true }),
+        client.from('learning_notes').select('id, title, content')
+          .eq('owner_id', user.userId).order('id', { ascending: true }),
       ]);
       if (notesError || samplesError || !Array.isArray(notes) || !Array.isArray(samples)) {
         return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
