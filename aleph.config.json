@@ -13,6 +13,6 @@
     "/api/notes (GET, POST)",
     "/api/notes/:id (GET, PUT, DELETE)"
   ],
-  "originalApiUrl": "https://choi-bujang-secret-vault-silk.vercel.app/api/notes",
+  "originalApiUrl": "https://gxqfisevuianuyaahqlu.supabase.co/rest/v1/learning_notes",
   "restoreRoute": null
 }
