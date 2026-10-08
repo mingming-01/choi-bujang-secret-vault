@@ -34,7 +34,7 @@
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 4단계 소유권 보호</div>
+    <div class="eyebrow">BYTE BACK · 5단계 서버 인증</div>
     <h1>점령된 자료실</h1>
     <p>Supabase Auth 이메일·비밀번호로 로그인하면 본인 소유의 가상 메모만 관리할 수 있습니다.</p>
 
@@ -51,7 +51,7 @@
     </section>
 
     <section id="workspace" hidden>
-      <div class="notice">4단계에서 메모 소유권을 확인합니다. 사용자 메모와 기존 학습 메모는 로그인한 계정에 연결된 자료만 반환되며, 다른 계정의 메모는 조회·수정·삭제할 수 없습니다. 실제 자료를 저장하지 마세요.</div>
+      <div class="notice">서버에서 로그인과 메모 소유권을 확인합니다. 사용자 메모와 기존 학습 메모는 로그인한 계정에 연결된 자료만 반환되며, 다른 계정의 메모는 조회·수정·삭제할 수 없습니다. 실제 자료를 저장하지 마세요.</div>
       <section class="panel" aria-labelledby="editor-heading">
         <h2 id="editor-heading">가상 메모 작성</h2>
         <form id="note-form">
@@ -75,11 +75,6 @@
     </section>
   </main>
   <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.117.2';
-
-    const SUPABASE_URL = 'https://gxqfisevuianuyaahqlu.supabase.co';
-    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_hVy5hiOtCJ0UiY-xbuglsw_SwT4CK5l';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     const loginForm = document.querySelector('#login-form');
     const authStatus = document.querySelector('#auth-status');
     const authMessage = document.querySelector('#auth-message');
@@ -91,13 +86,42 @@
     const samplesList = document.querySelector('#samples');
     let session = null;
     let editingId = null;
-    let sessionChange = Promise.resolve();
+
+    function saveSession(nextSession) {
+      if (nextSession?.access_token && nextSession?.refresh_token && nextSession?.user) {
+        session = nextSession;
+        sessionStorage.setItem('vault-session', JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          user: { email: session.user.email },
+        }));
+      } else {
+        session = null;
+        sessionStorage.removeItem('vault-session');
+      }
+    }
 
     function showMessage(element, message) {
       element.textContent = message;
     }
 
-    async function api(path, options = {}) {
+    async function refreshSession() {
+      if (!session?.refresh_token) return null;
+      try {
+        const response = await fetch('/api/auth', {
+          method: 'PUT',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: session.refresh_token }),
+        });
+        const data = await response.json().catch(() => ({}));
+        return response.ok ? data.session : null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function api(path, options = {}, retried = false) {
       if (!session?.access_token) throw new Error('로그인이 필요합니다.');
       const requestOptions = {
         ...options,
@@ -113,7 +137,14 @@
         : await fetch(path, requestOptions);
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 401) await updateSession(null);
+        if (response.status === 401) {
+          const refreshed = retried ? null : await refreshSession();
+          if (refreshed?.access_token && refreshed?.refresh_token) {
+            saveSession({ ...refreshed, user: refreshed.user || session.user });
+            return api(path, options, true);
+          }
+          await updateSession(null);
+        }
         throw new Error(data.error || `요청을 처리하지 못했습니다 (HTTP ${response.status}).`);
       }
       return data;
@@ -185,7 +216,7 @@
     }
 
     async function updateSession(nextSession) {
-      session = nextSession;
+      saveSession(nextSession);
       const signedIn = Boolean(session?.user);
       authStatus.textContent = signedIn ? `로그인 상태: ${session.user.email}` : '로그인하지 않았습니다.';
       loginForm.hidden = signedIn;
@@ -213,26 +244,44 @@
     loginForm.addEventListener('submit', async event => {
       event.preventDefault();
       showMessage(authMessage, '로그인 중입니다.');
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: document.querySelector('#email').value,
-        password: document.querySelector('#password').value,
-      });
-      if (error) {
-        showMessage(authMessage, `로그인 실패: ${error.message}`);
-        return;
+      try {
+        const response = await fetch('/api/auth', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: document.querySelector('#email').value,
+            password: document.querySelector('#password').value,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.session?.access_token) {
+          showMessage(authMessage, '로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.');
+          return;
+        }
+        showMessage(authMessage, '로그인했습니다.');
+        await updateSession(data.session);
+      } catch {
+        showMessage(authMessage, '로그인 요청을 처리하지 못했습니다.');
       }
-      showMessage(authMessage, '로그인했습니다.');
-      await updateSession(data.session);
     });
 
     logoutButton.addEventListener('click', async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        showMessage(authMessage, `로그아웃 실패: ${error.message}`);
-        return;
+      let logoutSucceeded = false;
+      try {
+        const response = await fetch('/api/auth', {
+          method: 'DELETE',
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+        });
+        logoutSucceeded = response.ok;
+      } catch {
+        logoutSucceeded = false;
       }
-      showMessage(authMessage, '로그아웃했습니다.');
       await updateSession(null);
+      showMessage(authMessage, logoutSucceeded
+        ? '로그아웃했습니다.'
+        : '로그아웃했습니다. 서버 세션 폐기 여부는 확인하지 못했습니다.');
     });
 
     noteForm.addEventListener('submit', async event => {
@@ -262,11 +311,13 @@
     });
 
     document.querySelector('#cancel-edit').addEventListener('click', resetEditor);
-    const { data: sessionData } = await supabase.auth.getSession();
-    await updateSession(sessionData.session);
-    supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void updateSession(nextSession);
-    });
+    let storedSession = null;
+    try {
+      storedSession = JSON.parse(sessionStorage.getItem('vault-session') || 'null');
+    } catch {
+      sessionStorage.removeItem('vault-session');
+    }
+    await updateSession(storedSession);
   </script>
 </body>
 </html>
