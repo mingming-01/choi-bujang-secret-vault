@@ -6,13 +6,17 @@ import { test } from 'node:test';
 const baseline = JSON.parse(await readFile(new URL('../package/baseline-functions.json', import.meta.url)));
 
 test('패키징 함수 기준표는 시작 틀의 실제 API와 일치한다', async () => {
-  const actual = (await readdir(new URL('../api/', import.meta.url)))
+  const actual = (await readdir(new URL('../api/', import.meta.url), { recursive: true }))
     .filter(name => /\.(?:m?js|ts)$/u.test(name))
-    .map(name => join('api', name).replaceAll('\\', '/')).sort();
+    .map(name => join('api', name).replaceAll('\\', '/'))
+    .map(name => name.startsWith('api/') ? name : `api/${name}`)
+    .sort();
   assert.equal(baseline.version, 1);
   assert.equal(baseline.starter, 'ChoiTimo/aleph-defense-starter');
   assert.deepEqual(baseline.functions, []);
-  assert.deepEqual(baseline.allowedNew, ['api/ai.js', 'api/notes.js', 'api/threat-intel.js']);
+  assert.deepEqual(baseline.allowedNew, [
+    'api/ai.js', 'api/notes.js', 'api/notes/[id].js', 'api/threat-intel.js',
+  ]);
   assert.deepEqual(actual, [...baseline.functions, ...baseline.allowedNew].sort());
 });
 
