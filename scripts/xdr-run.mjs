@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -51,11 +51,34 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     counts[action] += 1;
   }
 
-  const result = { schema: 'aleph.xdr.result.v1', moduleKey, decisions, counts };
-  const outDir = join(root, 'xdr', moduleKey);
-  await mkdir(outDir, { recursive: true });
-  await writeFile(join(outDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
-  return result;
+    const result = { schema: 'aleph.xdr.result.v1', moduleKey, decisions, counts };
+    const outDir = join(root, 'xdr', moduleKey);
+    await mkdir(outDir, { recursive: true });
+    await writeFile(join(outDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+
+    if (moduleKey === 'brute-force') {
+      const respondPath = join(root, 'xdr', moduleKey, 'respond.mjs');
+
+      try {
+        await access(respondPath);
+      } catch {
+        return result;
+      }
+
+      const responder = await import(pathToFileURL(respondPath).href);
+
+      if (typeof responder.respond !== 'function') {
+        throw new Error('respond 함수를 내보내지 않았습니다.');
+      }
+
+      await responder.respond({
+        root,
+        decisions,
+        alerts: fixture.alerts,
+      });
+    }
+
+    return result;
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
