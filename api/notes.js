@@ -23,10 +23,27 @@ export default async function handler(request, response) {
         detectSessionInUrl: false,
       },
     });
+    console.log('[notes] client-created');
+
     const { data, error } = await supabase
       .from('learning_notes')
       .select('id, title, content')
       .order('id', { ascending: true });
+
+    const queryDiagnostic = {
+      errorExists: Boolean(error),
+      dataIsArray: Array.isArray(data),
+      dataLength: Array.isArray(data) ? data.length : -1,
+    };
+    if (error) {
+      if (typeof error.status === 'number' && Number.isFinite(error.status)) {
+        queryDiagnostic.errorStatus = error.status;
+      }
+      if (typeof error.code === 'string') {
+        queryDiagnostic.errorCode = error.code;
+      }
+    }
+    console.log('[notes] query-complete', queryDiagnostic);
 
     if (error || !Array.isArray(data)) {
       return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
