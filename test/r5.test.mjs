@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import { deploymentIdentity } from '../scripts/deployment-identity.mjs';
 
 const config = {
-  step: 4,
+  step: 5,
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
   sampleMarker: 'SAMPLE_NOTE_1',
   publicAppUrl: 'https://student-defense.vercel.app',
@@ -30,10 +30,10 @@ function mockResponse() {
   };
 }
 
-test('배포 식별 정보는 4단계 설정도 허용하고 단계 번호를 기록한다', () => {
+test('배포 식별 정보는 5단계 설정도 허용하고 단계 번호를 기록한다', () => {
   assert.deepEqual(deploymentIdentity(env, config), {
     schema: 'aleph.defense.deployment.v1',
-    step: 4,
+    step: 5,
     repoUrl: 'https://github.com/student-a/aleph-defense',
     commit: 'a'.repeat(40),
     publicAppUrl: 'https://student-defense-123.vercel.app',
@@ -45,15 +45,19 @@ test('배포 식별 정보는 4단계 설정도 허용하고 단계 번호를 �
   assert.throws(() => deploymentIdentity(env, { ...config, step: 13 }));
 });
 
-test('4단계 화면은 공식 SDK 로그인과 보호된 메모 API를 유지하고 정적 data.json을 호출하지 않는다', async () => {
+test('5단계 화면은 서버 인증 API와 보호된 메모 API를 사용하고 Supabase Auth를 직접 호출하지 않는다', async () => {
   const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /@supabase\/supabase-js/u);
-  assert.match(html, /signInWithPassword/u);
-  assert.match(html, /signOut/u);
-  assert.match(html, /fetch\('\/api\/notes'/u);
-  assert.doesNotMatch(html, /fetch\('\/data\.json'/u);
-  assert.match(html, /Authorization: `Bearer \$\{session\.access_token\}`/u);
-  assert.match(html, /본인 소유의 가상 메모만/u);
+
+  assert.match(html, /fetch\(['"]\/api\/auth['"]/u);
+  assert.match(html, /fetch\(['"]\/api\/notes['"]/u);
+  assert.doesNotMatch(html, /@supabase\/supabase-js/u);
+  assert.doesNotMatch(html, /signInWithPassword/u);
+  assert.doesNotMatch(html, /supabase\.auth/u);
+  assert.doesNotMatch(html, /sb_publishable_/u);
+  assert.doesNotMatch(html, /SUPABASE_PUBLISHABLE_KEY/u);
+  assert.doesNotMatch(html, /SUPABASE_ANON_KEY/u);
+  assert.doesNotMatch(html, /data\.json/u);
+  assert.match(html, /Authorization:\s*`Bearer \$\{session\.access_token\}`/u);
 });
 
 test('메모 목록 API는 인증 없는 요청을 HTTP 401 및 JSON 오류로 거부한다', async () => {
@@ -83,7 +87,7 @@ test('메모 단건 API도 토큰 없는 GET을 JSON 401로 거부한다', async
 
 test('Supabase 설정과 허용 경로는 secret을 포함하지 않고 Supabase Auth 발급자와 일치한다', async () => {
   const settings = JSON.parse(await readFile(new URL('../aleph.config.json', import.meta.url), 'utf8'));
-  assert.equal(settings.step, 4);
+  assert.equal(settings.step, 5);
   assert.deepEqual(settings.allowedRoutes, [
     '/api/notes (GET, POST)',
     '/api/notes/:id (GET, PUT, DELETE)',
@@ -156,4 +160,21 @@ test('3단계 보안 헤더와 /data.json 차단 빌드 동작을 보존한다',
   assert.match(build, /config\.step === 1/u);
   assert.match(build, /await unlink\(output\)/u);
   assert.match(build, /public', 'aleph\.json'/u);
+});
+
+test('서버 인증 API는 로그인·갱신·로그아웃을 위한 POST, PUT, DELETE만 허용한다', async () => {
+  const { default: handler } = await import('../api/auth.js');
+
+  for (const method of ['GET', 'PATCH']) {
+    const response = mockResponse();
+
+    await handler({
+      method,
+      headers: {},
+    }, response);
+
+    assert.equal(response.statusCode, 405);
+    assert.deepEqual(response.body, { error: 'METHOD_NOT_ALLOWED' });
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  }
 });
