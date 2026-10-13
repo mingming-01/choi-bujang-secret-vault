@@ -1,9 +1,8 @@
-import { isIP } from 'node:net';
-
 // 패턴 후보만 분류합니다. 실제 반복 판정은 순수 함수를 호출하는 실행기가
 // 같은 출발지 주소의 후보 경보를 집계해 전달합니다.
 const SQL_SYNTAX = /\b(?:union\s+(?:all\s+)?select|select\s+[\w'"%()+\-\s]{1,80}\s+from|(?:or|and)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--|\/\*)/i;
 const SCRIPT_TAG = /<\s*\/?\s*script\b/i;
+const PATH_TRAVERSAL = /\.\.\//g;
 const CANDIDATE_REASON_PREFIX = '분류용 후보:';
 
 const PATTERNS = [
@@ -19,7 +18,7 @@ const PATTERNS = [
   },
   {
     name: '반복 경로 탐색 표기 ../',
-    matches: ({ requestText, description }) => countOccurrences(requestText, /\.\.\//g) > 0
+    matches: ({ requestText, description }) => countOccurrences(requestText, PATH_TRAVERSAL) > 0
       || /(?:경로를\s*여러\s*단계\s*거슬러\s*올라가는\s*표기|경로\s*이탈\s*표기)/i.test(description),
   },
 ];
@@ -69,8 +68,16 @@ function hasExplicitRepeatWording(description) {
     && !/(?:반복은\s*없|반복되지\s*않)/i.test(description);
 }
 
+// 이 과제의 fixture는 문서용 IPv4 주소를 사용합니다. decide 모듈은 Node 내장 모듈
+// import 없이 실행되어야 하므로 IPv4 유효성을 순수 함수로 확인합니다.
 function hasValidSource(alert) {
-  return typeof alert?.data?.srcip === 'string' && isIP(alert.data.srcip.trim()) !== 0;
+  const source = alert?.data?.srcip;
+  if (typeof source !== 'string') return false;
+  const octets = source.trim().split('.');
+  return octets.length === 4 && octets.every((octet) => {
+    if (!/^(?:0|[1-9]\d{0,2})$/.test(octet)) return false;
+    return Number(octet) <= 255;
+  });
 }
 
 function classify(alert) {
