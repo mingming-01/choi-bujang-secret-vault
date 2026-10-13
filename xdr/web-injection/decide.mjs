@@ -40,10 +40,15 @@ function getText(alert) {
   const requestText = typeof alert?.data?.url === 'string' ? decode(alert.data.url) : '';
   const queryStart = requestText.indexOf('?');
   const query = queryStart < 0 ? '' : requestText.slice(queryStart + 1).split('#', 1)[0];
+  const description = typeof alert?.description === 'string'
+    ? alert.description
+    : typeof alert?.rule?.description === 'string'
+      ? alert.rule.description
+      : '';
   return {
     requestText,
     query: decode(query),
-    description: typeof alert?.rule?.description === 'string' ? alert.rule.description : '',
+    description,
   };
 }
 
