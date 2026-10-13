@@ -7,13 +7,17 @@ const decidePath = fileURLToPath(new URL('../xdr/web-injection/decide.mjs', impo
 const source = await readFile(decidePath, 'utf8');
 assert.equal(/^\s*import\s/m.test(source), false, 'decide.mjs must have no imports');
 assert.equal(/\b(?:readFile|writeFile|appendFile|fetch)\s*\(/.test(source), false, 'decide.mjs must not perform I/O');
+assert.deepEqual([...source.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)].map((match) => match[1]), ['decide'], 'decide must be the only public function');
+assert.equal(/doc-(?:sql|script|up)-/.test(source), false, 'synthetic doc markers must not be attack patterns');
 
 const fixturePath = fileURLToPath(new URL('../xdr/fixtures/web-injection.json', import.meta.url));
 const fixture = JSON.parse(await readFile(fixturePath, 'utf8'));
 assert.equal(fixture.schema, 'aleph.xdr.fixture.v1');
 assert.equal(fixture.moduleKey, 'web-injection');
 
-// Fixture descriptions are metadata, not substitutes for request payloads or separate events.
+// Independent fixture expectations follow the request evidence and metadata
+// policy: exact doc-* markers are not attack evidence, and standalone alerts
+// cannot block. Selected ambiguous/high-severity alerts remain review-only.
 const expected = new Map([
   ...['wi-01', 'wi-02', 'wi-03', 'wi-04', 'wi-05', 'wi-06', 'wi-07', 'wi-08', 'wi-09', 'wi-15', 'wi-16', 'wi-17']
     .map((id) => [id, 'alert']),
@@ -24,10 +28,10 @@ const expected = new Map([
 const counts = { block: 0, alert: 0, record: 0 };
 for (const alert of fixture.alerts) {
   const expectedAction = expected.get(alert.id);
-  assert.ok(expectedAction, `missing evidence-based expectation for ${alert.id}`);
+  assert.ok(expectedAction, `missing expectation for ${alert.id}`);
   const result = decide(alert);
   assert.deepEqual(Object.keys(result).sort(), ['action', 'confidence', 'reason'], alert.id);
-  assert.equal(result.action, expectedAction, `${alert.id}: data.url has no actual SQL syntax, script tag, or ../ traversal`);
+  assert.equal(result.action, expectedAction, `${alert.id}: expected fixture classification`);
   assert.equal(typeof result.confidence, 'number', alert.id);
   assert.equal(typeof result.reason, 'string', alert.id);
   if (result.action === 'block') assert.ok(result.confidence >= 0.85, alert.id);
@@ -42,44 +46,74 @@ for (const alert of fixture.alerts) {
   };
   assert.equal(decide(flattenedAlert).action, expectedAction, `top-level description for ${alert.id}`);
 }
-assert.equal(expected.size, fixture.alerts.length, 'all fixture IDs have independent expectations');
-assert.deepEqual(counts, { block: 0, alert: 12, record: 14 });
+assert.equal(expected.size, fixture.alerts.length);
+assert.deepEqual(counts, { block: 0, alert: 12, record: 14 }, 'direct single-alert fixture classifications');
 
-const singleSql = {
+const sqlAlert = {
   id: 'standalone-sql',
-  rule: { description: '요청에서 의심 구문이 관찰됐습니다.' },
   data: { srcip: '203.0.113.90', url: '/search?q=union+select+name+from+users', count: '99' },
 };
-assert.equal(decide(singleSql).action, 'alert', 'data.count must not establish repetition');
+assert.equal(decide(sqlAlert).action, 'alert', 'a single actual SQL pattern remains alert-only regardless of data.count');
 assert.equal(decide({
+  ...sqlAlert,
   rule: { description: '같은 주소에서 SQL 구문이 3번 반복됐습니다.' },
+  data: { ...sqlAlert.data, count: '1' },
+}).action, 'alert', 'description claims cannot establish repetition');
+assert.equal(decide({
+  data: { srcip: '203.0.113.90', url: '/search?q=doc-sql-chain', count: '3' },
+}).action, 'record', 'synthetic doc marker and count are not attack evidence');
+assert.equal(decide({
+  data: { srcip: '203.0.113.90', url: '/search?q=select-course' },
+}).action, 'record', 'generic words alone are normal');
+
+const repeatedSql = {
+  id: 'sql-event-a',
   data: { srcip: '203.0.113.90', url: '/search?q=union+select+name+from+users', count: '1' },
-}).action, 'alert', 'a single event description cannot establish separate-alert repetition');
+  correlationEvidence: {
+    sourceAddress: 'ipv4:203.0.113.90',
+    patternId: 'sql-injection',
+    alertIds: ['sql-event-a', 'sql-event-b'],
+  },
+};
+assert.equal(decide(repeatedSql).action, 'block', 'two distinct same-source same-pattern alert IDs permit blocking');
 assert.equal(decide({
-  correlationEvidence: { sourceAddress: '203.0.113.90', patternId: 'sql-injection', occurrences: 2 },
-  data: { srcip: '203.0.113.90', url: '/search?q=union+select+name+from+users' },
-}).action, 'block', 'explicit repeated same-source and same-pattern correlation may block');
+  ...repeatedSql,
+  data: { srcip: '198.51.100.90', url: repeatedSql.data.url },
+}).action, 'alert', 'repetition evidence for another source cannot block');
 assert.equal(decide({
-  correlationEvidence: { sourceAddress: '203.0.113.90', patternId: 'sql-injection', occurrences: 2 },
-  data: { srcip: '198.51.100.90', url: '/search?q=union+select+name+from+users' },
-}).action, 'alert', 'correlation for a different source must not block');
+  ...repeatedSql,
+  correlationEvidence: { ...repeatedSql.correlationEvidence, alertIds: ['sql-event-a', 'sql-event-a'] },
+}).action, 'alert', 'duplicate IDs do not prove separate alerts');
 assert.equal(decide({
-  correlationEvidence: { sourceAddress: '203.0.113.90', patternId: 'sql-injection', occurrences: 2 },
+  ...repeatedSql,
+  correlationEvidence: { ...repeatedSql.correlationEvidence, patternId: 'script-tag' },
+}).action, 'alert', 'repetition evidence for another pattern cannot block');
+assert.equal(decide({
   data: { srcip: '203.0.113.90', url: '/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E' },
-}).action, 'alert', 'correlation for another pattern must not block');
-assert.equal(decide({
-  data: { srcip: '203.0.113.90', url: '/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E' },
-}).action, 'alert', 'an actual one-off script tag is suspicious, not a block');
+}).action, 'alert', 'one actual script tag remains alert-only');
 assert.equal(decide({
   data: { srcip: '203.0.113.90', url: '/files?path=../../etc/passwd' },
-}).action, 'alert', 'an actual one-off traversal string is suspicious, not a block');
+}).action, 'alert', 'repeated ../ request requires separate-alert correlation before block');
 assert.equal(decide({
-  data: { srcip: '203.0.113.90', url: '/search?q=select-script-up' },
-  rule: { description: '일반 검색입니다. SQL 수업의 script 단어와 up이 포함됐습니다.' },
-}).action, 'record', 'keywords alone are not attack evidence');
+  data: { srcip: '203.0.113.90', url: '/files?path=../etc/passwd' },
+}).action, 'record', 'a single ../ element is not the specified repeated traversal pattern');
 assert.equal(decide({
   data: { srcip: '203.0.113.90', url: '/search?q=union+select+name+from+users+%3Cscript%3E' },
-}).action, 'alert', 'overlapping attack patterns remain ambiguous');
+}).action, 'alert', 'overlapping request patterns remain ambiguous');
+assert.equal(decide({
+  id: 'ipv6-a',
+  data: { srcip: '2001:db8::1', url: '/search?q=union+select+name+from+users' },
+  correlationEvidence: { sourceAddress: 'ipv6:2001:0db8:0000:0000:0000:0000:0000:0001', patternId: 'sql-injection', alertIds: ['ipv6-a', 'ipv6-b'] },
+}).action, 'block', 'valid IPv6 sources can be correlated');
+assert.equal(decide({
+  id: 'invalid-ip',
+  data: { srcip: '999.1.1.1', url: '/search?q=union+select+name+from+users' },
+  correlationEvidence: { sourceAddress: 'ipv4:999.1.1.1', patternId: 'sql-injection', alertIds: ['invalid-ip', 'peer'] },
+}).action, 'alert', 'invalid source IPs cannot be blocked');
+assert.equal(decide({
+  data: { srcip: '203.0.113.90', url: '/notes?q=doc-cmd-separator' },
+  rule: { description: '명령 구분자 표기가 11번 반복됐습니다.' },
+}).action, 'record', 'description-only claims are not attack signals');
 
-console.log(`독립 decide 테스트 통과: fixture ${fixture.alerts.length}개와 반복·중첩 경계 사례`);
-console.log(`fixture 집계: block ${counts.block} / alert ${counts.alert} / record ${counts.record}`);
+console.log(`독립 decide 테스트 계약 확인: ${fixture.alerts.length}개 fixture와 명세 경계 사례`);
+console.log(`개별 fixture 직접 호출 집계: block ${counts.block} / alert ${counts.alert} / record ${counts.record}`);

@@ -17,6 +17,88 @@ export function isDecision(value) {
     && typeof value.reason === 'string';
 }
 
+function decodeRequest(value) {
+  let decoded = value.replace(/\+/g, ' ');
+  for (let pass = 0; pass < 2; pass += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+  return decoded;
+}
+
+function parseIpv4(value) {
+  const parts = value.split('.');
+  if (parts.length !== 4) return null;
+  const octets = [];
+  for (const part of parts) {
+    if (!/^(?:0|[1-9]\d{0,2})$/.test(part)) return null;
+    const octet = Number(part);
+    if (octet > 255) return null;
+    octets.push(octet);
+  }
+  return octets;
+}
+
+function parseIpv6(value) {
+  if (!value.includes(':') || value.includes('%')) return null;
+  let input = value.toLowerCase();
+
+  if (input.includes('.')) {
+    const lastColon = input.lastIndexOf(':');
+    if (lastColon < 0) return null;
+    const ipv4 = parseIpv4(input.slice(lastColon + 1));
+    if (!ipv4) return null;
+    const high = ((ipv4[0] << 8) | ipv4[1]).toString(16);
+    const low = ((ipv4[2] << 8) | ipv4[3]).toString(16);
+    input = `${input.slice(0, lastColon + 1)}${high}:${low}`;
+  }
+
+  const compressionIndex = input.indexOf('::');
+  if (compressionIndex !== -1 && input.indexOf('::', compressionIndex + 2) !== -1) return null;
+  const hasCompression = compressionIndex !== -1;
+  const leftText = hasCompression ? input.slice(0, compressionIndex) : input;
+  const rightText = hasCompression ? input.slice(compressionIndex + 2) : '';
+  const left = leftText ? leftText.split(':') : [];
+  const right = rightText ? rightText.split(':') : [];
+  const groups = [...left, ...right];
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+
+  if (hasCompression) {
+    if (groups.length >= 8) return null;
+    const zeros = Array(8 - groups.length).fill('0');
+    return [...left, ...zeros, ...right].map((group) => Number.parseInt(group, 16));
+  }
+  if (groups.length !== 8) return null;
+  return groups.map((group) => Number.parseInt(group, 16));
+}
+
+function normalizeSource(source) {
+  if (typeof source !== 'string') return '';
+  const normalized = source.trim();
+  const ipv4 = parseIpv4(normalized);
+  if (ipv4) return `ipv4:${ipv4.join('.')}`;
+  const ipv6 = parseIpv6(normalized);
+  return ipv6 ? `ipv6:${ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':')}` : '';
+}
+
+// Request pattern IDs intentionally match the standalone decide.mjs patterns.
+// Fixture doc-* markers, descriptions and data.count are not attack evidence.
+function getWebInjectionPatterns(alert) {
+  const url = typeof alert?.data?.url === 'string' ? decodeRequest(alert.data.url) : '';
+  const patterns = [];
+  if (/\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i.test(url)) {
+    patterns.push('sql-injection');
+  }
+  if (/<\s*\/?\s*script\b[^>]*>/i.test(url)) patterns.push('script-tag');
+  if (/(?:\.\.[/\\]){2,}/i.test(url)) patterns.push('path-traversal');
+  return { sourceAddress: normalizeSource(alert?.data?.srcip), patterns };
+}
+
 export async function runXdr({ root, moduleKey, writeError = (line) => console.error(line) }) {
   if (!MODULE_KEYS.includes(moduleKey)) {
     throw new Error('moduleKey 가 없습니다. brute-force, web-injection, known-cve, persistence, privilege, exfiltration 중 하나를 넣습니다.');
@@ -28,41 +110,35 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
   const loaded = await import(pathToFileURL(join(root, 'xdr', moduleKey, 'decide.mjs')).href);
   if (typeof loaded.decide !== 'function') throw new Error('decide 함수를 내보내지 않았습니다.');
 
-  // Correlate only independently observed request patterns from distinct fixture alerts.
-  // Descriptions, data.count, and generic runner-only classifier flags are never evidence.
-  const repeatByAlert = new Map();
+  // Correlate distinct alerts by normalized source IP + one exact request pattern.
+  // alert IDs, not data.count or description claims, establish distinct events.
+  const correlationByAlert = new Map();
   if (moduleKey === 'web-injection') {
-    if (typeof loaded.analyzeAlert !== 'function') {
-      throw new Error('web-injection decide.mjs는 analyzeAlert(alert)를 내보내야 합니다.');
-    }
-    const groupCounts = new Map();
     const observations = [];
+    const groups = new Map();
+    const alertIdCounts = new Map();
     for (const alert of fixture.alerts) {
-      try {
-        const evidence = loaded.analyzeAlert(alert);
-        if (
-          typeof evidence?.sourceAddress === 'string'
-          && evidence.sourceAddress !== ''
-          && Array.isArray(evidence.patterns)
-          && evidence.patterns.length === 1
-          && typeof evidence.patterns[0] === 'string'
-        ) {
-          const patternId = evidence.patterns[0];
-          const key = `${evidence.sourceAddress}\u0000${patternId}`;
-          groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
-          observations.push({ alert, sourceAddress: evidence.sourceAddress, patternId, key });
-        }
-      } catch {
-        // The final decide call handles malformed inputs as record.
+      const alertId = typeof alert?.id === 'string' ? alert.id.trim() : '';
+      if (alertId) alertIdCounts.set(alertId, (alertIdCounts.get(alertId) ?? 0) + 1);
+    }
+    for (const alert of fixture.alerts) {
+      const alertId = typeof alert?.id === 'string' ? alert.id.trim() : '';
+      const evidence = getWebInjectionPatterns(alert);
+      if (alertId && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length === 1) {
+        const patternId = evidence.patterns[0];
+        const key = `${evidence.sourceAddress}\u0000${patternId}`;
+        observations.push({ alert, sourceAddress: evidence.sourceAddress, patternId, key });
+        if (!groups.has(key)) groups.set(key, new Map());
+        groups.get(key).set(alertId, evidence);
       }
     }
     for (const observation of observations) {
-      const occurrences = groupCounts.get(observation.key) ?? 0;
-      if (occurrences >= 2) {
-        repeatByAlert.set(observation.alert, {
+      const distinctIds = [...groups.get(observation.key).keys()];
+      if (distinctIds.length >= 2) {
+        correlationByAlert.set(observation.alert, {
           sourceAddress: observation.sourceAddress,
           patternId: observation.patternId,
-          occurrences,
+          alertIds: distinctIds,
         });
       }
     }
@@ -76,8 +152,12 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     let confidence = 0;
     let reason = '반환 형식이 아닙니다';
     try {
-      const correlationEvidence = repeatByAlert.get(alert);
-      const input = correlationEvidence ? { ...alert, correlationEvidence } : alert;
+      let input = alert;
+      if (moduleKey === 'web-injection') {
+        // Discard any fixture-provided correlation claim. Only evidence built
+        // from this fixture's distinct alerts may be passed to decide().
+        input = { ...alert, correlationEvidence: correlationByAlert.get(alert) };
+      }
       const out = await loaded.decide(input);
       if (isDecision(out)) {
         action = out.action;

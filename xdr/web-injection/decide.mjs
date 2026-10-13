@@ -1,17 +1,15 @@
-// Self-contained classifier. It performs no file, network, or module I/O.
+// Self-contained classifier: no imports, file I/O, or network access.
 const SQL_SYNTAX = /\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i;
 const SCRIPT_TAG = /<\s*\/?\s*script\b[^>]*>/i;
-const PATH_TRAVERSAL = /(?:\.\.[/\\]){2,}/i;
-const SINGLE_PATH_TRAVERSAL = /\.\.[/\\]/i;
+const REPEATED_PATH_TRAVERSAL = /(?:\.\.[/\\]){2,}/i;
 const PATTERNS = [
   { id: 'sql-injection', name: '요청 데이터의 SQL 주입 구문', test: SQL_SYNTAX },
   { id: 'script-tag', name: '요청 데이터의 실제 script 태그', test: SCRIPT_TAG },
-  { id: 'path-traversal', name: '요청 데이터의 반복 ../ 경로 탐색', test: PATH_TRAVERSAL },
+  { id: 'path-traversal', name: '요청 데이터의 반복 ../ 경로 탐색', test: REPEATED_PATH_TRAVERSAL },
 ];
 
 function decodeRequest(value) {
   let decoded = value.replace(/\+/g, ' ');
-  // Decode ordinary and double-encoded request data without failing on malformed escapes.
   for (let pass = 0; pass < 2; pass += 1) {
     try {
       const next = decodeURIComponent(decoded);
@@ -29,54 +27,97 @@ function getRequestText(alert) {
   return typeof url === 'string' ? decodeRequest(url) : '';
 }
 
-function getDescription(alert) {
-  if (typeof alert?.description === 'string') return alert.description;
-  if (typeof alert?.rule?.description === 'string') return alert.rule.description;
-  return '';
+function parseIpv4(value) {
+  const parts = value.split('.');
+  if (parts.length !== 4) return null;
+  const octets = [];
+  for (const part of parts) {
+    if (!/^(?:0|[1-9]\d{0,2})$/.test(part)) return null;
+    const octet = Number(part);
+    if (octet > 255) return null;
+    octets.push(octet);
+  }
+  return octets;
+}
+
+function parseIpv6(value) {
+  if (!value.includes(':') || value.includes('%')) return null;
+  let input = value.toLowerCase();
+
+  if (input.includes('.')) {
+    const lastColon = input.lastIndexOf(':');
+    if (lastColon < 0) return null;
+    const ipv4 = parseIpv4(input.slice(lastColon + 1));
+    if (!ipv4) return null;
+    const high = ((ipv4[0] << 8) | ipv4[1]).toString(16);
+    const low = ((ipv4[2] << 8) | ipv4[3]).toString(16);
+    input = `${input.slice(0, lastColon + 1)}${high}:${low}`;
+  }
+
+  const compressionIndex = input.indexOf('::');
+  if (compressionIndex !== -1 && input.indexOf('::', compressionIndex + 2) !== -1) return null;
+  const hasCompression = compressionIndex !== -1;
+  const leftText = hasCompression ? input.slice(0, compressionIndex) : input;
+  const rightText = hasCompression ? input.slice(compressionIndex + 2) : '';
+  const left = leftText ? leftText.split(':') : [];
+  const right = rightText ? rightText.split(':') : [];
+  const groups = [...left, ...right];
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+
+  if (hasCompression) {
+    if (groups.length >= 8) return null;
+    const zeros = Array(8 - groups.length).fill('0');
+    return [...left, ...zeros, ...right].map((group) => Number.parseInt(group, 16));
+  }
+  if (groups.length !== 8) return null;
+  return groups.map((group) => Number.parseInt(group, 16));
 }
 
 function getValidSource(alert) {
   const source = alert?.data?.srcip;
   if (typeof source !== 'string') return '';
   const normalized = source.trim();
-  const octets = normalized.split('.');
-  if (octets.length !== 4) return '';
-  const valid = octets.every((octet) => /^(?:0|[1-9]\d{0,2})$/.test(octet) && Number(octet) <= 255);
-  return valid ? normalized : '';
+  const ipv4 = parseIpv4(normalized);
+  if (ipv4) return `ipv4:${ipv4.join('.')}`;
+  const ipv6 = parseIpv6(normalized);
+  return ipv6 ? `ipv6:${ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':')}` : '';
 }
 
-function hasSuspiciousMetadata(description) {
-  // Explicitly benign descriptions do not become suspicious merely by mentioning a keyword.
-  const normalized = description
-    .replace(/(?:삽입\s*표식|공격\s*표기)(?:은|는)?\s*(?:아닙니다|없습니다)/g, ' ');
-  return /\bSQL\b.{0,24}(?:구문|표기|injection|주입)|(?:스크립트|script).{0,20}(?:삽입|태그|표식)|(?:경로|path).{0,24}(?:이탈|탐색|거슬러|올라가|traversal)|데이터베이스.{0,20}(?:조회|쿼리).{0,20}(?:붙|표기)|명령.{0,12}구분자|구분\s*문자|따옴표|주입처럼\s*보이는|이상한\s*검색|공격\s*표기/i.test(normalized);
+function getDescription(alert) {
+  if (typeof alert?.description === 'string') return alert.description;
+  if (typeof alert?.rule?.description === 'string') return alert.rule.description;
+  return '';
 }
 
-/**
- * Extracts signals from request data separately from alert-description metadata.
- * The runner uses these stable pattern IDs to correlate independent alerts.
- */
-export function analyzeAlert(alert) {
+// Metadata can justify review, but never establishes a request attack pattern
+// or repeated-alert evidence. Descriptions claiming repetition are ignored.
+function hasAmbiguousMetadata(alert) {
+  const description = getDescription(alert);
+  if (/따옴표|이상한\s*검색|구분\s*문자|주입처럼\s*보이는/i.test(description)) return true;
+  const level = alert?.rule?.level;
+  const mitre = alert?.rule?.mitre;
+  return Number.isFinite(level) && level >= 10 && Array.isArray(mitre) && mitre.includes('T1190');
+}
+
+function getRequestPatterns(alert) {
   const requestText = getRequestText(alert);
-  return {
-    sourceAddress: getValidSource(alert),
-    patterns: PATTERNS.filter((pattern) => pattern.test.test(requestText)).map((pattern) => pattern.id),
-    suspiciousRequest: SINGLE_PATH_TRAVERSAL.test(requestText),
-    suspiciousMetadata: hasSuspiciousMetadata(getDescription(alert)),
-  };
+  return PATTERNS.filter((pattern) => pattern.test.test(requestText));
 }
 
 function hasRepeatedCorrelation(alert, sourceAddress, patternId) {
   const evidence = alert?.correlationEvidence;
-  return evidence?.sourceAddress === sourceAddress
-    && evidence?.patternId === patternId
-    && Number.isSafeInteger(evidence?.occurrences)
-    && evidence.occurrences >= 2;
+  const alertId = alert?.id;
+  if (typeof alertId !== 'string' || alertId.length === 0) return false;
+  if (evidence?.sourceAddress !== sourceAddress || evidence?.patternId !== patternId) return false;
+  if (!Array.isArray(evidence.alertIds) || !evidence.alertIds.includes(alertId)) return false;
+  const uniqueIds = new Set(evidence.alertIds.filter((id) => typeof id === 'string' && id.length > 0));
+  return uniqueIds.size >= 2 && uniqueIds.size === evidence.alertIds.length;
 }
 
 export function decide(alert) {
-  const analysis = analyzeAlert(alert);
-  const matched = PATTERNS.filter((pattern) => analysis.patterns.includes(pattern.id));
+  const matched = getRequestPatterns(alert);
+  const sourceAddress = getValidSource(alert);
+  const metadataHint = hasAmbiguousMetadata(alert);
 
   if (matched.length > 1) {
     return {
@@ -88,34 +129,32 @@ export function decide(alert) {
 
   if (matched.length === 1) {
     const pattern = matched[0];
-    if (
-      analysis.sourceAddress !== ''
-      && hasRepeatedCorrelation(alert, analysis.sourceAddress, pattern.id)
-    ) {
+    const repeated = sourceAddress !== '' && hasRepeatedCorrelation(alert, sourceAddress, pattern.id);
+    if (repeated) {
       return {
         action: 'block',
         confidence: 0.92,
-        reason: `유효한 출발지에서 동일 요청 패턴의 별도 경보 반복 확인: ${pattern.name}.`,
+        reason: `유효한 출발지에서 동일 패턴의 별도 경보 반복을 확인했습니다: ${pattern.name}.`,
       };
     }
     return {
       action: 'alert',
       confidence: 0.68,
-      reason: `요청 데이터에서 ${pattern.name} 신호를 확인했지만, 동일 출발지·동일 패턴의 별도 경보 반복 근거가 부족합니다.`,
+      reason: `요청 데이터에서 ${pattern.name} 신호를 확인했지만, 동일 출발지의 별도 경보 반복 근거가 없어 차단하지 않습니다.`,
     };
   }
 
-  if (analysis.suspiciousRequest || analysis.suspiciousMetadata) {
+  if (metadataHint) {
     return {
       action: 'alert',
       confidence: 0.56,
-      reason: '요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다.',
+      reason: '요청 공격 패턴은 확정되지 않았지만, 경보 메타데이터의 모호한 정황을 검토하도록 알립니다.',
     };
   }
 
   return {
     action: 'record',
     confidence: 0.08,
-    reason: '요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다.',
+    reason: '요청 데이터에서 지정된 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다.',
   };
 }
