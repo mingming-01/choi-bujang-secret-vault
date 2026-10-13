@@ -31,7 +31,8 @@ try {
       { id: 'rep-sql-b', data: { srcip: '203.0.113.200', url: '/search?q=union+select+email+from+accounts', count: '90' } },
       { id: 'different-pattern', data: { srcip: '203.0.113.200', url: '/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E', count: '90' } },
       { id: 'different-source', data: { srcip: '198.51.100.200', url: '/search?q=union+select+name+from+users', count: '90' } },
-      { id: 'normal', data: { srcip: '192.0.2.200', url: '/search?q=select-course', count: '90' } },
+      { id: 'description-only', rule: { description: '같은 주소에서 SQL 구문이 50번 반복됐습니다.' }, data: { srcip: '192.0.2.200', url: '/search?q=doc-sql-chain', count: '90' } },
+      { id: 'normal', data: { srcip: '192.0.2.201', url: '/search?q=select-course', count: '90' } },
     ],
   };
   await writeFile(join(fixtureDir, 'web-injection.json'), `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
@@ -42,11 +43,11 @@ try {
   assert.equal(actualById.get('rep-sql-b')?.action, 'block', 'same-source SQL peer is also blockable');
   assert.equal(actualById.get('different-pattern')?.action, 'alert', 'different pattern does not share SQL repeat evidence');
   assert.equal(actualById.get('different-source')?.action, 'alert', 'different source does not share repeat evidence');
+  assert.equal(actualById.get('description-only')?.action, 'alert', 'description repetition claims do not create clear request signals');
   assert.equal(actualById.get('normal')?.action, 'record', 'normal event remains record');
-  assert.deepEqual(result.counts, { block: 2, alert: 2, record: 1 });
-  assert.equal(result.decisions.filter((decision) => decision.alertId === 'normal' && decision.action === 'block').length, 0);
+  assert.deepEqual(result.counts, { block: 2, alert: 3, record: 1 });
 
-  console.log('실행기 반복 집계 단위 테스트 통과: data.count 무시, 같은 출발지·동일 패턴 반복만 공유');
+  console.log('실행기 반복 집계 테스트 통과: 별도 이벤트의 같은 출발지·동일 요청 패턴만 상관');
   for (const decision of result.decisions) console.log(`${decision.alertId} | ${decision.action}`);
   console.log(`집계: block ${result.counts.block} / alert ${result.counts.alert} / record ${result.counts.record}`);
 } finally {

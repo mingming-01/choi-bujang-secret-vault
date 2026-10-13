@@ -4,164 +4,164 @@
   "decisions": [
     {
       "alertId": "wi-01",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "반복 근거와 유효한 출발지 주소: 요청 매개변수의 SQL 구문"
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-02",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "반복 근거와 유효한 출발지 주소: 스크립트 태그 삽입 표기"
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-03",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "반복 근거와 유효한 출발지 주소: 반복 경로 탐색 표기 ../"
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-04",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "반복 근거와 유효한 출발지 주소: 요청 매개변수의 SQL 구문"
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-05",
       "action": "alert",
-      "confidence": 0.68,
-      "reason": "서로 다른 공격 패턴이 겹쳐 단일 공격으로 확정하지 않습니다: 요청 매개변수의 SQL 구문 및 스크립트 태그 삽입 표기."
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-06",
       "action": "alert",
       "confidence": 0.56,
-      "reason": "불완전하거나 정의된 범위 밖의 의심 표기만 확인되어 추가 검토가 필요합니다."
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-07",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "반복 근거와 유효한 출발지 주소: 반복 경로 탐색 표기 ../"
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-08",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "반복 근거와 유효한 출발지 주소: 요청 매개변수의 SQL 구문"
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-09",
       "action": "alert",
       "confidence": 0.56,
-      "reason": "불완전하거나 정의된 범위 밖의 의심 표기만 확인되어 추가 검토가 필요합니다."
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-10",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-11",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-12",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-13",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-14",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-15",
       "action": "alert",
       "confidence": 0.56,
-      "reason": "불완전하거나 정의된 범위 밖의 의심 표기만 확인되어 추가 검토가 필요합니다."
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-16",
       "action": "alert",
       "confidence": 0.56,
-      "reason": "불완전하거나 정의된 범위 밖의 의심 표기만 확인되어 추가 검토가 필요합니다."
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-17",
       "action": "alert",
       "confidence": 0.56,
-      "reason": "불완전하거나 정의된 범위 밖의 의심 표기만 확인되어 추가 검토가 필요합니다."
+      "reason": "요청 데이터 또는 경보 메타데이터에 의심 정황이 있으나 차단에 필요한 명확한 반복 신호가 부족합니다."
     },
     {
       "alertId": "wi-18",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-19",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-20",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-21",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-22",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-23",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-24",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-25",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     },
     {
       "alertId": "wi-26",
       "action": "record",
       "confidence": 0.08,
-      "reason": "요청에서 명시적인 SQL 구문·스크립트 태그·경로 탐색 징후를 확인하지 못해 정상 입력으로 기록합니다."
+      "reason": "요청 데이터에서 주입 신호가 확인되지 않아 정상 이벤트로 기록합니다."
     }
   ],
   "counts": {
-    "block": 6,
-    "alert": 6,
+    "block": 0,
+    "alert": 12,
     "record": 14
   }
 }

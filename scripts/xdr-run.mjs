@@ -4,8 +4,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const MODULE_KEYS = ['brute-force', 'web-injection', 'known-cve', 'persistence', 'privilege', 'exfiltration'];
 const ACTIONS = new Set(['block', 'alert', 'record']);
-const RUNNER_EVIDENCE_KEY = '__xdrRunnerRepeatEvidence';
-const RUNNER_CLASSIFY_KEY = '__xdrRunnerClassifyOnly';
 
 export function isDecision(value) {
   return Boolean(value)
@@ -30,30 +28,42 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
   const loaded = await import(pathToFileURL(join(root, 'xdr', moduleKey, 'decide.mjs')).href);
   if (typeof loaded.decide !== 'function') throw new Error('decide 함수를 내보내지 않았습니다.');
 
-  // Repetition is counted only from actual fixture alerts sharing a source and a single pattern.
-  // Neither data.count nor repetition figures mentioned in descriptions enter this cross-alert count.
-  const sourceRepeatCounts = new Map();
-  const patternByAlertId = new Map();
+  // Correlate only independently observed request patterns from distinct fixture alerts.
+  // Descriptions, data.count, and generic runner-only classifier flags are never evidence.
+  const repeatByAlert = new Map();
   if (moduleKey === 'web-injection') {
+    if (typeof loaded.analyzeAlert !== 'function') {
+      throw new Error('web-injection decide.mjs는 analyzeAlert(alert)를 내보내야 합니다.');
+    }
+    const groupCounts = new Map();
+    const observations = [];
     for (const alert of fixture.alerts) {
       try {
-        const candidate = await loaded.decide({ ...alert, [RUNNER_CLASSIFY_KEY]: true });
-        const source = alert?.data?.srcip;
+        const evidence = loaded.analyzeAlert(alert);
         if (
-          isDecision(candidate)
-          && candidate.reason.startsWith('분류용 후보:')
-          && typeof source === 'string'
-          && source.trim() !== ''
+          typeof evidence?.sourceAddress === 'string'
+          && evidence.sourceAddress !== ''
+          && Array.isArray(evidence.patterns)
+          && evidence.patterns.length === 1
+          && typeof evidence.patterns[0] === 'string'
         ) {
-          const patternName = candidate.reason.slice('분류용 후보:'.length).trim();
-          const normalizedSource = source.trim();
-          const countsByPattern = sourceRepeatCounts.get(normalizedSource) ?? new Map();
-          countsByPattern.set(patternName, (countsByPattern.get(patternName) ?? 0) + 1);
-          sourceRepeatCounts.set(normalizedSource, countsByPattern);
-          patternByAlertId.set(alert?.id, { source: normalizedSource, patternName });
+          const patternId = evidence.patterns[0];
+          const key = `${evidence.sourceAddress}\u0000${patternId}`;
+          groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
+          observations.push({ alert, sourceAddress: evidence.sourceAddress, patternId, key });
         }
       } catch {
-        // Final call handles malformed decisions as record, so pre-aggregation may be skipped.
+        // The final decide call handles malformed inputs as record.
+      }
+    }
+    for (const observation of observations) {
+      const occurrences = groupCounts.get(observation.key) ?? 0;
+      if (occurrences >= 2) {
+        repeatByAlert.set(observation.alert, {
+          sourceAddress: observation.sourceAddress,
+          patternId: observation.patternId,
+          occurrences,
+        });
       }
     }
   }
@@ -66,20 +76,8 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     let confidence = 0;
     let reason = '반환 형식이 아닙니다';
     try {
-      let input = alert;
-      if (moduleKey === 'web-injection') {
-        const candidate = patternByAlertId.get(alertId);
-        const count = candidate
-          ? sourceRepeatCounts.get(candidate.source)?.get(candidate.patternName) ?? 0
-          : 0;
-        const source = alert?.data?.srcip;
-        if (candidate && count >= 2 && typeof source === 'string' && source.trim() === candidate.source) {
-          input = {
-            ...alert,
-            [RUNNER_EVIDENCE_KEY]: { ...candidate, count },
-          };
-        }
-      }
+      const correlationEvidence = repeatByAlert.get(alert);
+      const input = correlationEvidence ? { ...alert, correlationEvidence } : alert;
       const out = await loaded.decide(input);
       if (isDecision(out)) {
         action = out.action;

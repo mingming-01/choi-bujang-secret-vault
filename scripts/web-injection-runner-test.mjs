@@ -7,24 +7,21 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const fixture = JSON.parse(await readFile(`${root}/xdr/fixtures/web-injection.json`, 'utf8'));
 const actual = await runXdr({ root, moduleKey: 'web-injection', writeError: (line) => { throw new Error(line); } });
 const expected = new Map([
-  ['wi-01', 'block'], ['wi-02', 'block'], ['wi-03', 'block'], ['wi-04', 'block'],
-  ['wi-05', 'alert'], ['wi-06', 'alert'], ['wi-07', 'block'], ['wi-08', 'block'],
-  ['wi-09', 'alert'], ['wi-10', 'record'], ['wi-11', 'record'], ['wi-12', 'record'],
-  ['wi-13', 'record'], ['wi-14', 'record'], ['wi-15', 'alert'], ['wi-16', 'alert'],
-  ['wi-17', 'alert'], ['wi-18', 'record'], ['wi-19', 'record'], ['wi-20', 'record'],
-  ['wi-21', 'record'], ['wi-22', 'record'], ['wi-23', 'record'], ['wi-24', 'record'],
-  ['wi-25', 'record'], ['wi-26', 'record'],
+  ...['wi-01', 'wi-02', 'wi-03', 'wi-04', 'wi-05', 'wi-06', 'wi-07', 'wi-08', 'wi-09', 'wi-15', 'wi-16', 'wi-17']
+    .map((id) => [id, 'alert']),
+  ...['wi-10', 'wi-11', 'wi-12', 'wi-13', 'wi-14', 'wi-18', 'wi-19', 'wi-20', 'wi-21', 'wi-22', 'wi-23', 'wi-24', 'wi-25', 'wi-26']
+    .map((id) => [id, 'record']),
 ]);
 const basis = new Map([
-  ['wi-01', 'no attack substring in this event URL; only event-local wording about repeats'],
-  ['wi-02', 'no attack substring in URL; script count in description is not another fixture event'],
-  ['wi-03', 'no traversal substring in URL; event-local description alone does not create peer alerts'],
-  ['wi-04', 'no SQL substring in URL; description count is not a count of separate alerts'],
-  ['wi-05', 'description explicitly alternates SQL and script evidence, therefore ambiguous'],
-  ['wi-06', 'uncertain command-separator signal outside supported clear patterns'],
-  ['wi-07', 'no traversal substring in URL; event-local description does not create peer alerts'],
-  ['wi-08', 'no SQL substring in URL; event-local description does not create peer alerts'],
-  ['wi-09', 'one quote and explicitly no repetition'],
+  ['wi-01', 'URL has an opaque marker; description-only claimed SQL repetitions are not request evidence'],
+  ['wi-02', 'URL has an opaque marker; script insertion and count in description are metadata only'],
+  ['wi-03', 'URL has an opaque marker; path traversal and count in description are metadata only'],
+  ['wi-04', 'URL has an opaque marker; SQL description count is not separate alert evidence'],
+  ['wi-05', 'description mentions alternating SQL and script but URL has neither; metadata is ambiguous'],
+  ['wi-06', 'command-separator description is a vague candidate, not clear supported request syntax'],
+  ['wi-07', 'URL has an opaque marker; path deviation and count in description are metadata only'],
+  ['wi-08', 'URL has an opaque marker; database query and count in description are metadata only'],
+  ['wi-09', 'single quote metadata without request attack syntax'],
   ['wi-10', 'benign course-name use of select'],
   ['wi-11', 'class word script, not tag insertion'],
   ['wi-12', 'benign path word up'],
@@ -43,9 +40,9 @@ for (const alert of fixture.alerts) {
   assert.equal(byId.get(alert.id)?.action, expected.get(alert.id), `${alert.id}: ${basis.get(alert.id) ?? 'ordinary input'}`);
 }
 assert.equal(expected.size, fixture.alerts.length);
-assert.deepEqual(actual.counts, { block: 6, alert: 6, record: 14 });
+assert.deepEqual(actual.counts, { block: 0, alert: 12, record: 14 });
 assert.equal(fixture.alerts.filter((alert) => alert.rule.level <= 3).filter((alert) => byId.get(alert.id).action === 'block').length, 0, 'normal events never block');
 
-console.log(`실행기 반복 집계 및 fixture 판정 테스트 통과: ${fixture.alerts.length}개`);
+console.log(`실행기 경보 상관 테스트 통과: ${fixture.alerts.length}개`);
 for (const alert of fixture.alerts) console.log(`${alert.id} | ${basis.get(alert.id) ?? 'ordinary input'} | ${byId.get(alert.id).action}`);
 console.log(`집계: block ${actual.counts.block} / alert ${actual.counts.alert} / record ${actual.counts.record}`);
