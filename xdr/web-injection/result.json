@@ -28,15 +28,15 @@
     },
     {
       "alertId": "wi-05",
-      "action": "block",
-      "confidence": 0.96,
-      "reason": "요청 매개변수의 SQL 구문 및 스크립트 태그 삽입 표기"
+      "action": "alert",
+      "confidence": 0.68,
+      "reason": "단일 또는 반복 근거가 부족한 징후: 요청 매개변수의 SQL 구문 및 스크립트 태그 삽입 표기."
     },
     {
       "alertId": "wi-06",
-      "action": "record",
-      "confidence": 0.08,
-      "reason": "요청에 정의된 SQL 구문·스크립트 태그·반복 경로 탐색 징후가 없어 정상 입력으로 기록합니다."
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "정의된 패턴 범위 밖의 반복 의심 표기이므로 차단하지 않고 검토 대상으로 남깁니다."
     },
     {
       "alertId": "wi-07",
@@ -160,8 +160,8 @@
     }
   ],
   "counts": {
-    "block": 7,
-    "alert": 4,
-    "record": 15
+    "block": 6,
+    "alert": 6,
+    "record": 14
   }
 }

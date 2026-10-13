@@ -28,6 +28,32 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
   const loaded = await import(pathToFileURL(join(root, 'xdr', moduleKey, 'decide.mjs')).href);
   if (typeof loaded.decide !== 'function') throw new Error('decide 함수를 내보내지 않았습니다.');
 
+  // 순수 판정 함수는 이벤트 하나씩 받습니다. web-injection만 먼저 동일한 판정 함수를
+  // 분류 모드로 명시된 단일 패턴 후보를 찾고, 유효한 srcip와 패턴별 이벤트 수를 집계합니다.
+  // 원본 경보를 수정하지 않으며, 집계값은 최종 판정 호출에만 전달됩니다.
+  const sourceRepeatCounts = new Map();
+  if (moduleKey === 'web-injection') {
+    for (const alert of fixture.alerts) {
+      try {
+        const candidate = await loaded.decide(alert, { classifyOnly: true });
+        const source = alert?.data?.srcip;
+        if (
+          isDecision(candidate)
+          && candidate.reason.startsWith('분류용 후보:')
+          && typeof source === 'string'
+          && source.trim() !== ''
+        ) {
+          const patternName = candidate.reason.slice('분류용 후보:'.length).trim();
+          const countsByPattern = sourceRepeatCounts.get(source.trim()) ?? new Map();
+          countsByPattern.set(patternName, (countsByPattern.get(patternName) ?? 0) + 1);
+          sourceRepeatCounts.set(source.trim(), countsByPattern);
+        }
+      } catch {
+        // 최종 판정 호출이 기존처럼 오류를 record 처리하므로 사전 집계는 건너뜁니다.
+      }
+    }
+  }
+
   const decisions = [];
   const counts = { block: 0, alert: 0, record: 0 };
   for (const alert of fixture.alerts) {
@@ -36,7 +62,15 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     let confidence = 0;
     let reason = '반환 형식이 아닙니다';
     try {
-      const out = await loaded.decide(alert);
+      const source = alert?.data?.srcip;
+      const context = moduleKey === 'web-injection'
+        && typeof source === 'string'
+        && source.trim() !== ''
+        ? { sourceRepeatCounts: Object.fromEntries(sourceRepeatCounts.get(source.trim()) ?? []) }
+        : undefined;
+      const out = context
+        ? await loaded.decide(alert, context)
+        : await loaded.decide(alert);
       if (isDecision(out)) {
         action = out.action;
         confidence = out.confidence;

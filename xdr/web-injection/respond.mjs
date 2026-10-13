@@ -1,4 +1,4 @@
-import { appendFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const EXPIRATION_MINUTES = 30;
@@ -70,7 +70,25 @@ export async function respond({ root, decisions, alerts }) {
   }
 
   if (logLines.length > 0) {
-    await appendFile(join(root, 'xdr', 'alerts.log'), `${logLines.join('\n')}\n`, 'utf8');
+    const logPath = join(root, 'xdr', 'alerts.log');
+    let existingLog = '';
+    try {
+      existingLog = await readFile(logPath, 'utf8');
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+
+    const existingLines = new Set(existingLog.split(/\r?\n/));
+    const newLines = logLines.filter((line) => {
+      if (existingLines.has(line)) return false;
+      existingLines.add(line);
+      return true;
+    });
+
+    if (newLines.length > 0) {
+      const separator = existingLog !== '' && !/(?:\r?\n)$/.test(existingLog) ? '\n' : '';
+      await appendFile(logPath, `${separator}${newLines.join('\n')}\n`, 'utf8');
+    }
   }
 
   // scripts/xdr-run.mjs는 web-injection 응답기를 호출하며, 응답기는 차단 후보 규칙을 반환하고 xdr/alerts.log에 경보별 기록을 추가합니다.
