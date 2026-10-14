@@ -13,6 +13,7 @@ const RECENT_EVENT_WINDOW_SECONDS = 600;
 const BULK_READ_MIN_COUNT = 20;
 
 function isPlainDataObject(value, expectedKeys) {
+  
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
   const prototype = Object.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) return false;

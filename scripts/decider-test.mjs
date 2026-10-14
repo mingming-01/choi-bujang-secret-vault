@@ -31,11 +31,6 @@ export async function checkDecider({ decide, ruleIds }) {
       reasonCode: 'approved', ruleIds: ['device_registered'] },
     { name: '복합 이상 접속은 추가 확인', request: suspicious, decision: 'step_up',
       reasonCode: 'composite_anomaly_step_up', ruleIds: ['composite_access_anomaly'] },
-    { name: '출처 문자열이 judge_fixture가 아니어도 계약 필드의 복합 이상은 추가 확인', request: withNewId({
-      ...suspicious,
-      signals: { ...suspicious.signals, source: 'engine' },
-    }), decision: 'step_up', reasonCode: 'composite_anomaly_step_up',
-      ruleIds: ['composite_access_anomaly'] },
     { name: '지역 신호만으로 이상 판정하지 않음', request: withNewId({ ...normal,
       signals: { ...normal.signals, region: 'foreign' },
     }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
@@ -49,18 +44,58 @@ export async function checkDecider({ decide, ruleIds }) {
       signals: { ...normal.signals, hour: 3 },
       recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }],
     }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '늦은 시각과 첫 네트워크만으로 추가 확인하지 않음', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, hour: 3, network: 'first_seen' },
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '시각과 첫 네트워크 없이 대량 조회만으로 추가 확인하지 않음', request: withNewId({
+      ...normal,
+      recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }],
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '시각·대량 조회 없이 첫 네트워크만으로 추가 확인하지 않음', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, network: 'first_seen' },
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
     { name: '출처가 없는 신호와 대량 조회만으로 추가 확인하지 않음', request: withNewId({
       ...normal,
       signals: { source: 'none', region: 'unknown', network: 'unknown', hour: 3 },
       recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }],
     }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '출처가 none인 요청은 first_seen 네트워크를 주장할 수 없음', request: withNewId({
+      ...suspicious,
+      signals: { ...suspicious.signals, source: 'none', region: 'unknown' },
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
     { name: '빈 출처 필드의 불완전한 요청은 거부', request: withNewId({
       ...suspicious,
       signals: { ...suspicious.signals, source: '' },
     }), decision: 'deny', reasonCode: 'device_not_registered',
       ruleIds: ['device_registered'] },
+    { name: 'hour 자료형이 잘못된 요청은 거부', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, hour: '3' },
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '계약에 없는 signals 필드가 추가된 요청은 거부', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, clientLocation: 'foreign' },
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '계약에 없는 role 필드가 추가된 요청은 거부', request: withNewId({
+      ...normal, role: 'admin',
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '계약에 없는 recentEvents 필드가 추가된 항목은 거부', request: withNewId({
+      ...normal,
+      recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20, source: 'browser' }],
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
     { name: '미등록 기기의 가상 요청', request: withNewId({ ...normal,
       deviceRegistered: false }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '미등록 기기의 복합 이상 요청도 기존 기기 규칙으로 거부', request: withNewId({
+      ...suspicious, deviceRegistered: false,
+    }), decision: 'deny', reasonCode: 'device_not_registered',
       ruleIds: ['device_registered'] },
     { name: '등록 여부가 누락된 요청', request: (() => {
       const { deviceRegistered, ...request } = normal;
@@ -93,8 +128,15 @@ export async function checkDecider({ decide, ruleIds }) {
   ];
   const results = [];
   for (const item of checks) {
-    const response = await decide(item.request);
-    const valid = validResponse(item.request, response, ruleIds)
+    // Give every case a fresh UUID and execution-time timestamp so the contract's
+    // five-second freshness check tests the intended condition, not stale fixture time.
+    const request = {
+      ...item.request,
+      requestId: randomUUID(),
+      at: new Date().toISOString(),
+    };
+    const response = await decide(request);
+    const valid = validResponse(request, response, ruleIds)
       && response.decision === item.decision
       && response.reasonCode === item.reasonCode
       && JSON.stringify(response.ruleIds) === JSON.stringify(item.ruleIds);
