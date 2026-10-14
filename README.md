@@ -35,3 +35,17 @@
 로컬 시험은 `npm run test:r5`입니다. 이 테스트는 실제 Supabase 계정, SQL 정책이나 Vercel 배포를 검증하지 않습니다. 배포에서 `/aleph.json`, `/data.json`, 응답 헤더와 사용자 간 소유권 거부를 직접 확인해야 합니다. `npm run build`/`npm run bundle`은 이번 단계 요청에 따라 실행하지 않았습니다.
 
 `src/decider.mjs`와 `src/detect.mjs`의 로컬 시험은 실제 운영 엔진이나 심판 판정이 아닙니다. 제출 묶음은 실제 저장소 및 배포와 일치하는지 확인해 생성하세요.
+
+## 6단계: 등록한 기기만 자료실에 들어옵니다
+
+`src/decider.mjs`의 판정기는 요청 최상위 필드 `deviceRegistered`가 정확히 `true`인 경우에만 등록 기기로 판단해 `decision: 'allow'`와 `reasonCode: 'approved'`를 반환합니다. 값이 `false`이거나 필드가 누락되면 `decision: 'deny'`, `reasonCode: 'device_not_registered'`를 반환합니다. 두 경우 모두 응답의 `ruleIds`는 `['device_registered']`입니다.
+
+로컬 가상 요청 검증은 다음 명령으로 실행합니다.
+
+```sh
+npm run decider:test
+```
+
+로컬 터미널에서 보고된 최근 결과는 등록 기기의 정상 요청, 미등록 기기의 가상 요청, 등록 여부가 누락된 요청 모두 **통과**입니다. 이 테스트는 가상 요청에 대한 로컬 판정기 연습이며, 공식 심판 통과의 증거가 아닙니다. 실제 API 접근통제나 운영 엔진의 동작도 이 결과로 검증된 것은 아니므로 별도로 확인해야 합니다.
+
+6단계 기록 시 `aleph.config.json`의 `step`은 `6`입니다. `npm run bundle`, Git 명령, 실제 ZTNA 정책 적용은 이번 문서·설정 갱신에서 수행하지 않았습니다.

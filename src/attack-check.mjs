@@ -73,7 +73,75 @@ async function requestJson(url, options = {}) {
   return { response, body };
 }
 
+async function runLocalDeviceRegistrationChecks() {
+  const { decide, RULE_IDS } = await import('./decider.mjs');
+  if (typeof decide !== 'function' || !Array.isArray(RULE_IDS)
+      || !RULE_IDS.includes('device_registered')) {
+    throw new Error('6단계 로컬 점검에 필요한 device_registered 판정 규칙을 확인할 수 없습니다.');
+  }
+
+  const checks = [
+    {
+      attackId: 'device_registered_allow',
+      expected: 'deviceRegistered=true인 로컬 가상 요청은 allow',
+      request: { requestId: 'local-step6-registered', deviceRegistered: true },
+      decision: 'allow',
+      reasonCode: 'approved',
+    },
+    {
+      attackId: 'device_not_registered_deny',
+      expected: 'deviceRegistered=false인 로컬 가상 요청은 deny 및 device_not_registered',
+      request: { requestId: 'local-step6-unregistered', deviceRegistered: false },
+      decision: 'deny',
+      reasonCode: 'device_not_registered',
+    },
+    {
+      attackId: 'device_registration_missing_deny',
+      expected: 'deviceRegistered가 누락된 로컬 가상 요청은 deny 및 device_not_registered',
+      request: { requestId: 'local-step6-missing' },
+      decision: 'deny',
+      reasonCode: 'device_not_registered',
+    },
+  ];
+
+
+  const results = [];
+
+  for (const check of checks) {
+    const response = await decide(check.request);
+    const validRuleIds = Array.isArray(response?.ruleIds)
+      && response.ruleIds.length === 1
+      && response.ruleIds[0] === 'device_registered';
+
+    const passed = response?.decision === check.decision
+      && response?.reasonCode === check.reasonCode
+      && validRuleIds;
+
+    if (!passed) {
+      throw new Error(
+        `6단계 점검 실패: ${check.attackId} `
+        + `(decision=${String(response?.decision)}, `
+        + `reasonCode=${String(response?.reasonCode)}, `
+        + `ruleIds=${JSON.stringify(response?.ruleIds)})`
+      );
+    }
+
+    results.push({
+      attackId: check.attackId,
+      expected: check.expected,
+      observed: `로컬 가상 요청 검증: 기대 결과와 일치 (decision=${response.decision}, reasonCode=${response.reasonCode})`,
+    });
+  }
+
+  return results;
+
+}
+
 export async function runAttackChecks(config) {
+  if (config.step === 6) {
+    return runLocalDeviceRegistrationChecks();
+  }
+
   if (config.step !== 4 && config.step !== 5) {
     throw new Error('이 단계의 공격 점검은 src/attack-check.mjs에 구현해 주세요.');
   }

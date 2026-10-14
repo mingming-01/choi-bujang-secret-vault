@@ -25,9 +25,13 @@ export async function checkDecider({ decide, ruleIds }) {
   }
   const { normal, suspicious } = fixtureRequests();
   const checks = [
-    { name: '등록 기기의 정상 요청', request: normal, decision: 'allow' },
+    { name: '등록 기기의 정상 요청', request: normal, decision: 'allow', reasonCode: 'approved' },
     { name: '미등록 기기의 가상 요청', request: { ...normal, requestId: randomUUID(),
       deviceRegistered: false }, decision: 'deny', reasonCode: 'device_not_registered' },
+    { name: '등록 여부가 누락된 요청', request: (() => {
+      const { deviceRegistered, ...request } = normal;
+      return { ...request, requestId: randomUUID() };
+    })(), decision: 'deny', reasonCode: 'device_not_registered' },
   ];
   if (ruleIds.includes('step_up_required')) {
     checks.push(
