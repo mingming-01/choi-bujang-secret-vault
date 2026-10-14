@@ -69,7 +69,8 @@ function validRequest(request) {
 
     const signalKeys = ['source', 'region', 'network', 'hour'];
     if (!isPlainDataObject(request.signals, signalKeys)
-        || !['none', 'judge_fixture'].includes(request.signals.source)
+        || typeof request.signals.source !== 'string'
+        || request.signals.source.length === 0 || request.signals.source.length > 80
         || typeof request.signals.region !== 'string'
         || request.signals.region.length === 0 || request.signals.region.length > 80
         || typeof request.signals.network !== 'string'
@@ -78,7 +79,7 @@ function validRequest(request) {
         || request.signals.hour < 0 || request.signals.hour > 23) return false;
 
     // The live contract currently supplies no trusted region/network source.
-    // Fixture signals are accepted only for the local exercise and are never treated as live evidence.
+    // Keep that documented empty-source representation from claiming either signal.
     if (request.signals.source === 'none'
         && (request.signals.region !== 'unknown' || request.signals.network !== 'unknown')) {
       return false;
@@ -92,16 +93,15 @@ function validRequest(request) {
 
 function hasCompositeAnomaly(request) {
   const { signals, recentEvents } = request;
-  // judge_fixture is a synthetic exercise source, not verified real-world location/network data.
-  // Never infer an anomaly from its region field; require the three independent fixture signals.
+  // source is descriptive, not an authentication token or an allow-listed enum.
+  // The engine supplies the request; use the contract's actual hour/network/event fields.
   const unusualHour = signals.hour <= 5 || signals.hour >= 23;
   const firstSeenNetwork = signals.network === 'first_seen';
   const recentBulkRead = recentEvents.some(event => event.kind === 'bulk_read'
     && event.ageSeconds <= RECENT_EVENT_WINDOW_SECONDS
     && event.count >= BULK_READ_MIN_COUNT);
 
-  return signals.source === 'judge_fixture'
-    && unusualHour && firstSeenNetwork && recentBulkRead;
+  return unusualHour && firstSeenNetwork && recentBulkRead;
 }
 
 function responseRequestId(request) {
