@@ -95,10 +95,14 @@ function validRequest(request) {
 
     // The live contract currently supplies no trusted region/network source.
     // Keep that documented empty-source representation from claiming either signal.
+    
+    // 출처가 없으면 네트워크 신호를 신뢰하지 않습니다.
+    // 지역 변화만으로 요청 전체를 거부하지 않습니다.
     if (request.signals.source === 'none'
-        && (request.signals.region !== 'unknown' || request.signals.network !== 'unknown')) {
+        && request.signals.network !== 'unknown') {
       return false;
     }
+
     return true;
   } catch {
     // Proxies, getters, malformed dates, and other non-JSON input fail closed.
