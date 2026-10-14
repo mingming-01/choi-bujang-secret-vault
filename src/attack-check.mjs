@@ -202,7 +202,8 @@ async function runLocalStepSevenChecks() {
   const verified = [];
 
   for (const check of checks) {
-    const response = await decide(check.request);
+    // Match the contract: decide() returns the response object directly, not a Promise.
+    const response = decide(check.request);
     if (!matchesExpectedDecision(check.request, response, check)) {
       throw new Error(
         `7단계 로컬 점검 실패: ${check.attackId}의 schema, requestId, decision, reasonCode 또는 ruleIds가 기대값과 다릅니다.`
@@ -248,7 +249,7 @@ export async function runAttackChecks(config) {
     attackId: 'homepage_nosniff_header',
     expected: '첫 화면 응답에 X-Content-Type-Options: nosniff가 있어야 함',
     observed:
-      homepage.headers.get('x-content-type-options')?.toLowerCase() === 'nosniff'
+      homepage.headers.get('x-content-options')?.toLowerCase() === 'nosniff'
         ? `첫 화면 HTTP${homepage.status}에서 nosniff 헤더를 확인함`
         : `첫 화면 HTTP${homepage.status}에서 nosniff 헤더를 확인하지 못함`,
   });

@@ -126,7 +126,8 @@ function responseRequestId(request) {
   }
 }
 
-export async function decide(request) {
+// The contract returns the response object directly; this pure decision needs no Promise.
+export function decide(request) {
   const valid = validRequest(request);
   const isRegistered = valid && request.deviceRegistered === true;
   const needsStepUp = isRegistered && hasCompositeAnomaly(request);

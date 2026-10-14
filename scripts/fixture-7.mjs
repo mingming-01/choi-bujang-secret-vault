@@ -19,6 +19,7 @@ export function fixtureRequests() {
   };
 }
 const check = (input, output) => output && typeof output === 'object'
+  && !('then' in output)
   && Object.keys(output).sort().join(',') === 'decision,reasonCode,requestId,ruleIds,schema'
   && output.schema === 'aleph.decision.v1' && output.requestId === input.requestId
   && ['allow', 'deny', 'step_up'].includes(output.decision)
@@ -31,8 +32,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     if (typeof decide !== 'function' || !RULE_IDS?.includes('composite_access_anomaly')) {
       throw new Error('src/decider.mjs에서 복합 이상 판정 규칙을 확인할 수 없습니다.');
     }
-    const ordinary = await decide(normal);
-    const unusual = await decide(suspicious);
+    const ordinary = decide(normal);
+    const unusual = decide(suspicious);
     if (!check(normal, ordinary) || !check(suspicious, unusual)) throw new Error('판정기 응답 형식이 맞지 않습니다.');
     process.stdout.write(`정상 가상 사건: ${ordinary.decision}\n복합 이상 가상 사건: ${unusual.decision}\n`);
     if (ordinary.decision !== 'allow' || unusual.decision !== 'step_up'
