@@ -17,9 +17,9 @@ export function isDecision(value) {
     && typeof value.reason === 'string';
 }
 
-function decodeRequest(value) {
+function decodeRequest(value, decodePasses) {
   let decoded = value.replace(/\+/g, ' ');
-  for (let pass = 0; pass < 2; pass += 1) {
+  for (let pass = 0; pass < decodePasses; pass += 1) {
     try {
       const next = decodeURIComponent(decoded);
       if (next === decoded) break;
@@ -47,7 +47,6 @@ function parseIpv4(value) {
 function parseIpv6(value) {
   if (!value.includes(':') || value.includes('%')) return null;
   let input = value.toLowerCase();
-
   if (input.includes('.')) {
     const lastColon = input.lastIndexOf(':');
     if (lastColon < 0) return null;
@@ -57,7 +56,6 @@ function parseIpv6(value) {
     const low = ((ipv4[2] << 8) | ipv4[3]).toString(16);
     input = `${input.slice(0, lastColon + 1)}${high}:${low}`;
   }
-
   const compressionIndex = input.indexOf('::');
   if (compressionIndex !== -1 && input.indexOf('::', compressionIndex + 2) !== -1) return null;
   const hasCompression = compressionIndex !== -1;
@@ -67,7 +65,6 @@ function parseIpv6(value) {
   const right = rightText ? rightText.split(':') : [];
   const groups = [...left, ...right];
   if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
-
   if (hasCompression) {
     if (groups.length >= 8) return null;
     const zeros = Array(8 - groups.length).fill('0');
@@ -80,35 +77,58 @@ function parseIpv6(value) {
 function normalizeSource(source) {
   if (typeof source !== 'string') return '';
   const normalized = source.trim();
+  if (!normalized || /[\s/]/.test(normalized)) return '';
   const ipv4 = parseIpv4(normalized);
   if (ipv4) return `ipv4:${ipv4.join('.')}`;
   const ipv6 = parseIpv6(normalized);
   return ipv6 ? `ipv6:${ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':')}` : '';
 }
 
-// Request pattern IDs intentionally match the standalone decide.mjs patterns.
-// Fixture doc-* markers, descriptions and data.count are not attack evidence.
-function getWebInjectionPatterns(alert) {
-  const requestText = [
-    alert?.data?.url,
-    alert?.data?.uri,
-    alert?.url,
-    alert?.requestUrl,
-    alert?.request,
-  ]
-    .filter((value) => typeof value === 'string')
-    .map(decodeRequest)
-    .join(' ');
-  const patterns = [];
-  if (/\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i.test(requestText)) {
-    patterns.push('sql-injection');
+function getAlertSource(alert) {
+  for (const candidate of [alert?.sourceAddress, alert?.source, alert?.data?.srcip]) {
+    const normalized = normalizeSource(candidate);
+    if (normalized) return normalized;
   }
-  if (/<\s*\/?\s*script\b[^>]*>/i.test(requestText)) patterns.push('script-tag');
-  if (/(?:\.\.[/\\]){2,}/i.test(requestText)) patterns.push('path-traversal');
-  return {
-    sourceAddress: normalizeSource(alert?.sourceAddress ?? alert?.source ?? alert?.data?.srcip),
-    patterns,
-  };
+  return '';
+}
+
+function getPathValue(value, path) {
+  return path.split('.').reduce((current, key) => current?.[key], value);
+}
+
+// Actual patterns and request-field configuration come from patterns.json;
+// descriptions, marker strings and count fields are deliberately excluded.
+function getWebInjectionEvidence(alert, config) {
+  const requestFields = config.requestFields.filter((field) => typeof field === 'string');
+  const requestText = requestFields
+    .map((field) => getPathValue(alert, field))
+    .filter((value) => typeof value === 'string')
+    .map((value) => decodeRequest(value, config.decodePasses))
+    .join(' ');
+  const patterns = config.patterns
+    .filter((pattern) => {
+      try {
+        return new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, '')).test(requestText);
+      } catch {
+        return false;
+      }
+    })
+    .map((pattern) => pattern.id);
+  return { sourceAddress: getAlertSource(alert), patterns };
+}
+
+function validateWebInjectionConfig(config) {
+  if (
+    !config
+    || config.schema !== 'aleph.xdr.web-injection-patterns.v1'
+    || !Array.isArray(config.requestFields)
+    || !Number.isInteger(config.decodePasses)
+    || !Array.isArray(config.patterns)
+    || !Array.isArray(config.ambiguousPatterns)
+  ) {
+    throw new Error('web-injection patterns.json 형식이 올바르지 않습니다.');
+  }
+  return config;
 }
 
 export async function runXdr({ root, moduleKey, writeError = (line) => console.error(line) }) {
@@ -122,8 +142,15 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
   const loaded = await import(pathToFileURL(join(root, 'xdr', moduleKey, 'decide.mjs')).href);
   if (typeof loaded.decide !== 'function') throw new Error('decide 함수를 내보내지 않았습니다.');
 
-  // Correlate distinct alerts by normalized source IP + one exact request pattern.
-  // alert IDs, not data.count or description claims, establish distinct events.
+  let webInjectionConfig;
+  if (moduleKey === 'web-injection') {
+    webInjectionConfig = validateWebInjectionConfig(JSON.parse(
+      await readFile(join(root, 'xdr', moduleKey, 'patterns.json'), 'utf8'),
+    ));
+  }
+
+  // Correlate distinct alert IDs by normalized source + exactly one actual
+  // configured request pattern. No fixture-provided claims enter this map.
   const correlationByAlert = new Map();
   if (moduleKey === 'web-injection') {
     const observations = [];
@@ -135,7 +162,7 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     }
     for (const alert of fixture.alerts) {
       const alertId = typeof alert?.id === 'string' ? alert.id.trim() : '';
-      const evidence = getWebInjectionPatterns(alert);
+      const evidence = getWebInjectionEvidence(alert, webInjectionConfig);
       if (alertId && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length === 1) {
         const patternId = evidence.patterns[0];
         const key = `${evidence.sourceAddress}\u0000${patternId}`;
@@ -166,9 +193,12 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     try {
       let input = alert;
       if (moduleKey === 'web-injection') {
-        // Discard any fixture-provided correlation claim. Only evidence built
-        // from this fixture's distinct alerts may be passed to decide().
-        input = { ...alert, correlationEvidence: correlationByAlert.get(alert) };
+        input = {
+          ...alert,
+          // Discard any fixture-provided claim; only runner-calculated proof is passed.
+          correlationEvidence: correlationByAlert.get(alert),
+          webInjectionConfig,
+        };
       }
       const out = await loaded.decide(input);
       if (isDecision(out)) {
@@ -192,26 +222,24 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
 
   if (moduleKey === 'brute-force' || moduleKey === 'web-injection') {
     const respondPath = join(root, 'xdr', moduleKey, 'respond.mjs');
-
     try {
       await access(respondPath);
     } catch {
       return result;
     }
-
     const responder = await import(pathToFileURL(respondPath).href);
-
-    if (typeof responder.respond !== 'function') {
-      throw new Error('respond 함수를 내보내지 않았습니다.');
+    if (typeof responder.respond !== 'function') throw new Error('respond 함수를 내보내지 않았습니다.');
+    const response = await responder.respond({ root, decisions, alerts: fixture.alerts });
+    if (moduleKey === 'web-injection') {
+      result.response = {
+        candidateRules: Array.isArray(response?.rules) ? response.rules : [],
+        blockedCandidates: Number.isInteger(response?.blocked) ? response.blocked : 0,
+        skippedInvalidTimestamp: Number.isInteger(response?.skippedInvalidTimestamp) ? response.skippedInvalidTimestamp : 0,
+        appliedToZtna: false,
+      };
+      await writeFile(join(outDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
     }
-
-    await responder.respond({
-      root,
-      decisions,
-      alerts: fixture.alerts,
-    });
   }
-
   return result;
 }
 

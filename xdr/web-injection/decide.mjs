@@ -1,7 +1,57 @@
-function decodeText(value) {
-  let text = String(value ?? '').replace(/\+/g, ' ');
+const REQUEST_FIELDS = ['data.url', 'data.uri', 'url', 'requestUrl', 'request'];
+const DEFAULT_PATTERNS = [
+  { id: 'sql-injection', regex: /\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i },
+  { id: 'script-tag', regex: /<\s*\/?\s*script\b[^>]*>/i },
+  { id: 'path-traversal', regex: /(?:\.\.[/\\]){2,}/i },
+];
+const DEFAULT_AMBIGUOUS_PATTERNS = [
+  { id: 'partial-sql', regex: /\bunion\s+(?:all\s+)?$/i },
+  { id: 'partial-script-tag', regex: /<\s*\/?\s*script\b(?![^>]*>)/i },
+  { id: 'single-traversal-segment', regex: /(?:\.\.[/\\])/i },
+  { id: 'isolated-quote', regex: /['"]/i },
+];
 
-  for (let i = 0; i < 2; i += 1) {
+function compileDefinitions(definitions) {
+  if (!Array.isArray(definitions)) return [];
+  return definitions.flatMap((definition) => {
+    if (!definition || typeof definition.id !== 'string' || typeof definition.source !== 'string') return [];
+    try {
+      return [{ id: definition.id, regex: new RegExp(definition.source, typeof definition.flags === 'string' ? definition.flags.replace(/[gy]/g, '') : '') }];
+    } catch {
+      return [];
+    }
+  });
+}
+
+function getSettings(alert) {
+  const config = alert?.webInjectionConfig;
+  if (!config || config.schema !== 'aleph.xdr.web-injection-patterns.v1') {
+    return {
+      requestFields: REQUEST_FIELDS,
+      decodePasses: 2,
+      patterns: DEFAULT_PATTERNS,
+      ambiguousPatterns: DEFAULT_AMBIGUOUS_PATTERNS,
+    };
+  }
+  return {
+    requestFields: Array.isArray(config.requestFields)
+      ? config.requestFields.filter((field) => typeof field === 'string')
+      : REQUEST_FIELDS,
+    decodePasses: Number.isInteger(config.decodePasses)
+      ? Math.max(0, Math.min(config.decodePasses, 4))
+      : 2,
+    patterns: compileDefinitions(config.patterns),
+    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns),
+  };
+}
+
+function getPathValue(value, path) {
+  return path.split('.').reduce((current, key) => current?.[key], value);
+}
+
+function decodeText(value, decodePasses) {
+  let text = String(value ?? '').replace(/\+/g, ' ');
+  for (let i = 0; i < decodePasses; i += 1) {
     try {
       const decoded = decodeURIComponent(text);
       if (decoded === text) break;
@@ -10,162 +60,85 @@ function decodeText(value) {
       break;
     }
   }
-
   return text;
 }
 
-function getRequestText(alert) {
-  return [
-    alert?.data?.url,
-    alert?.data?.uri,
-    alert?.url,
-    alert?.requestUrl,
-    alert?.request,
-  ]
+function getRequestText(alert, settings) {
+  return settings.requestFields
+    .map((field) => getPathValue(alert, field))
     .filter((value) => typeof value === 'string')
-    .map(decodeText)
+    .map((value) => decodeText(value, settings.decodePasses))
     .join(' ');
 }
 
-function getActualPatterns(text) {
-  const patterns = [];
-
-  if (
-    /\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i.test(text)
-  ) {
-    patterns.push('sql-injection');
-  }
-
-  if (/<\s*\/?\s*script\b[^>]*>/i.test(text)) {
-    patterns.push('script-tag');
-  }
-
-  if (/(?:\.\.[/\\]){2,}/i.test(text)) {
-    patterns.push('path-traversal');
-  }
-
-  return patterns;
-}
-
-function hasAmbiguousRequestSignal(text) {
-  // A lone quote or one ../ segment is review-worthy, but not sufficient to
-  // establish one of the supported complete attack patterns.
-  return /['"]|\.\.[/\\]/.test(text);
-}
-
-function hasHighRiskReviewMetadata(alert) {
-  const level = alert?.rule?.level;
-  const mitre = alert?.rule?.mitre;
-
-  return typeof level === 'number'
-    && Number.isFinite(level)
-    && level >= 10
-    && Array.isArray(mitre)
-    && mitre.includes('T1190');
+function matchingIds(text, patterns) {
+  return patterns.filter(({ regex }) => regex.test(text)).map(({ id }) => id);
 }
 
 function parseIpv4(value) {
   const parts = value.split('.');
   if (parts.length !== 4) return null;
-
   const octets = [];
-
   for (const part of parts) {
     if (!/^(?:0|[1-9]\d{0,2})$/.test(part)) return null;
-
     const octet = Number(part);
     if (octet > 255) return null;
-
     octets.push(octet);
   }
-
   return octets;
 }
 
 function parseIpv6(value) {
-  if (!value.includes(':') || value.includes('%')) {
-    return null;
-  }
-
+  if (!value.includes(':') || value.includes('%')) return null;
   let input = value.toLowerCase();
-
-  // Normalize IPv4-embedded IPv6 in the same way as the runner.
   if (input.includes('.')) {
     const lastColon = input.lastIndexOf(':');
     if (lastColon < 0) return null;
-
     const ipv4 = parseIpv4(input.slice(lastColon + 1));
     if (!ipv4) return null;
-
     const high = ((ipv4[0] << 8) | ipv4[1]).toString(16);
     const low = ((ipv4[2] << 8) | ipv4[3]).toString(16);
     input = `${input.slice(0, lastColon + 1)}${high}:${low}`;
   }
-
   const compressionIndex = input.indexOf('::');
-
-  if (
-    compressionIndex !== -1 &&
-    input.indexOf('::', compressionIndex + 2) !== -1
-  ) {
-    return null;
-  }
-
+  if (compressionIndex !== -1 && input.indexOf('::', compressionIndex + 2) !== -1) return null;
   const compressed = compressionIndex !== -1;
   const leftText = compressed ? input.slice(0, compressionIndex) : input;
   const rightText = compressed ? input.slice(compressionIndex + 2) : '';
-
   const left = leftText ? leftText.split(':') : [];
   const right = rightText ? rightText.split(':') : [];
   const groups = [...left, ...right];
-
-  if (!groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) {
-    return null;
-  }
-
+  if (!groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) return null;
   if (compressed) {
     if (groups.length >= 8) return null;
-
     const zeros = Array(8 - groups.length).fill('0');
-    return [...left, ...zeros, ...right].map((group) =>
-      Number.parseInt(group, 16)
-    );
+    return [...left, ...zeros, ...right].map((group) => Number.parseInt(group, 16));
   }
-
   if (groups.length !== 8) return null;
-
   return groups.map((group) => Number.parseInt(group, 16));
 }
 
 function normalizeSource(value) {
   if (typeof value !== 'string') return '';
-
   const source = value.trim();
   if (!source || /[\s/]/.test(source)) return '';
-
   const ipv4 = parseIpv4(source);
-
-  if (ipv4) {
-    return `ipv4:${ipv4.join('.')}`;
-  }
-
+  if (ipv4) return `ipv4:${ipv4.join('.')}`;
   const ipv6 = parseIpv6(source);
+  if (!ipv6) return '';
+  return `ipv6:${ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':')}`;
+}
 
-  if (ipv6) {
-    return `ipv6:${ipv6
-      .map((group) => group.toString(16).padStart(4, '0'))
-      .join(':')}`;
+function getValidSource(alert) {
+  for (const candidate of [alert?.sourceAddress, alert?.source, alert?.data?.srcip]) {
+    const normalized = normalizeSource(candidate);
+    if (normalized) return normalized;
   }
-
   return '';
 }
 
 function result(action, confidence, reason) {
-  return {
-    action,
-    confidence,
-    reason: String(reason).replace(/[\r\n]+/g, ' ').slice(0, 240),
-  };
+  return { action, confidence, reason: String(reason).replace(/[\r\n]+/g, ' ').slice(0, 240) };
 }
 
 function isValidAlertId(value) {
@@ -178,92 +151,58 @@ function isValidAlertId(value) {
 
 function hasValidCorrelation(alert, patternName, source) {
   const correlation = alert?.correlationEvidence;
-
-  if (
-    !source
-    || !correlation
-    || typeof correlation !== 'object'
-    || Array.isArray(correlation)
-  ) {
-    return false;
-  }
-
+  if (!source || !correlation || typeof correlation !== 'object' || Array.isArray(correlation)) return false;
   const keys = Object.keys(correlation).sort();
-  if (keys.length !== 3 || keys.join(',') !== 'alertIds,patternId,sourceAddress') {
-    return false;
-  }
-
+  if (keys.length !== 3 || keys.join(',') !== 'alertIds,patternId,sourceAddress') return false;
   if (
     correlation.patternId !== patternName
     || correlation.sourceAddress !== source
     || !Array.isArray(correlation.alertIds)
     || correlation.alertIds.length < 2
     || !correlation.alertIds.every(isValidAlertId)
-  ) {
-    return false;
-  }
-
+  ) return false;
   const alertIds = new Set(correlation.alertIds);
   const alertId = alert?.id;
-
   return alertIds.size === correlation.alertIds.length
     && isValidAlertId(alertId)
     && alertIds.has(alertId);
 }
 
-export function decide(alert) {
-  const requestText = getRequestText(alert);
-  const source = normalizeSource(
-    alert?.sourceAddress ?? alert?.source ?? alert?.data?.srcip
-  );
+function hasHighRiskReviewMetadata(alert) {
+  const level = alert?.rule?.level;
+  const mitre = alert?.rule?.mitre;
+  return typeof level === 'number'
+    && Number.isFinite(level)
+    && level >= 10
+    && Array.isArray(mitre)
+    && mitre.includes('T1190');
+}
 
-  const patterns = getActualPatterns(requestText);
+// The decider remains standalone and side-effect free. The runner may attach
+// the already-loaded patterns.json config as in-memory webInjectionConfig.
+export function decide(alert) {
+  const settings = getSettings(alert);
+  const requestText = getRequestText(alert, settings);
+  const source = getValidSource(alert);
+  const patterns = matchingIds(requestText, settings.patterns);
 
   if (patterns.length > 1) {
-    return result(
-      'alert',
-      0.68,
-      'ambiguous-pattern-overlap: 여러 공격 유형이 겹침'
-    );
+    return result('alert', 0.68, 'ambiguous-pattern-overlap: 여러 공격 유형이 겹침');
   }
 
   if (patterns.length === 0) {
-    if (hasAmbiguousRequestSignal(requestText)) {
-      return result(
-        'alert',
-        0.6,
-        'ambiguous-request-signal: 요청의 단일 구문만으로 공격을 확정할 수 없어 검토 대상으로 분류'
-      );
+    if (matchingIds(requestText, settings.ambiguousPatterns).length > 0) {
+      return result('alert', 0.6, 'ambiguous-request-signal: 요청 데이터에 불완전한 주입 신호가 있어 검토 대상으로 분류');
     }
-
     if (hasHighRiskReviewMetadata(alert)) {
-      return result(
-        'alert',
-        0.55,
-        'high-risk-review-metadata: 심각도와 T1190이 함께 있어 검토 대상으로 분류; 공격 증거 또는 차단 근거는 아님'
-      );
+      return result('alert', 0.55, 'high-risk-review-metadata: 심각도와 T1190이 함께 있어 검토 대상으로 분류; 공격 증거나 차단 근거는 아님');
     }
-
-    return result(
-      'record',
-      0.08,
-      'normal-or-unsupported: 지정된 공격 패턴 또는 검토 신호 증거 없음'
-    );
+    return result('record', 0.08, 'normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
   }
 
   const patternName = patterns[0];
-
   if (hasValidCorrelation(alert, patternName, source)) {
-    return result(
-      'block',
-      0.92,
-      `${patternName}: 동일 출처의 별도 경보에서 같은 패턴 확인`
-    );
+    return result('block', 0.92, `${patternName}: 동일 출처의 서로 다른 경보에서 같은 패턴 확인`);
   }
-
-  return result(
-    'alert',
-    0.68,
-    `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`
-  );
+  return result('alert', 0.68, `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`);
 }

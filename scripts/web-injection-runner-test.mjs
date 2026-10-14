@@ -7,6 +7,7 @@ import { runXdr } from './xdr-run.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const fixture = JSON.parse(await readFile(`${root}/xdr/fixtures/web-injection.json`, 'utf8'));
+const patterns = await readFile(`${root}/xdr/web-injection/patterns.json`, 'utf8');
 const temporaryRoot = await mkdtemp(join(tmpdir(), 'web-injection-runner-'));
 
 try {
@@ -17,6 +18,7 @@ try {
   await writeFile(join(fixtureDir, 'web-injection.json'), `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
   await writeFile(join(moduleDir, 'decide.mjs'), await readFile(`${root}/xdr/web-injection/decide.mjs`, 'utf8'), 'utf8');
   await writeFile(join(moduleDir, 'respond.mjs'), await readFile(`${root}/xdr/web-injection/respond.mjs`, 'utf8'), 'utf8');
+  await writeFile(join(moduleDir, 'patterns.json'), patterns, 'utf8');
 
   const actual = await runXdr({ root: temporaryRoot, moduleKey: 'web-injection', writeError: (line) => { throw new Error(line); } });
   const expected = new Map([
@@ -54,11 +56,14 @@ try {
   }
   assert.equal(expected.size, fixture.alerts.length);
   assert.deepEqual(actual.counts, { block: 0, alert: 8, record: 18 });
+  assert.equal(actual.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
+  assert.deepEqual(actual.response?.candidateRules, [], 'fixture has no repeated actual attack pattern to block');
   assert.equal(fixture.alerts.filter((alert) => alert.rule.level <= 3).filter((alert) => byId.get(alert.id).action !== 'record').length, 0, 'normal events remain record');
 
   console.log(`실행기 경보 판정 테스트 계약 확인: ${fixture.alerts.length}개`);
   for (const alert of fixture.alerts) console.log(`${alert.id} | ${basis.get(alert.id) ?? 'ordinary input'} | ${byId.get(alert.id).action}`);
   console.log(`집계 기대값: block ${actual.counts.block} / alert ${actual.counts.alert} / record ${actual.counts.record}`);
+  console.log(`응답 후보: ${actual.response?.blockedCandidates ?? 0}, ZTNA 적용=${actual.response?.appliedToZtna}`);
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
 }

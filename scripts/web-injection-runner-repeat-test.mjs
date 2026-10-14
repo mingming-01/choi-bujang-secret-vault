@@ -15,6 +15,7 @@ try {
   await mkdir(fixtureDir, { recursive: true });
   await writeFile(join(moduleDir, 'decide.mjs'), await readFile(join(projectRoot, 'xdr', 'web-injection', 'decide.mjs'), 'utf8'), 'utf8');
   await writeFile(join(moduleDir, 'respond.mjs'), await readFile(join(projectRoot, 'xdr', 'web-injection', 'respond.mjs'), 'utf8'), 'utf8');
+  await writeFile(join(moduleDir, 'patterns.json'), await readFile(join(projectRoot, 'xdr', 'web-injection', 'patterns.json'), 'utf8'), 'utf8');
 
   const fixture = {
     schema: 'aleph.xdr.fixture.v1',
@@ -58,6 +59,8 @@ try {
   assert.equal(actualById.get('normal')?.action, 'record', 'normal event remains record');
   assert.equal(actualById.get('high-risk-metadata-only')?.action, 'alert', 'high-risk metadata requests review but cannot block');
   assert.deepEqual(result.counts, { block: 4, alert: 7, record: 5 });
+  assert.equal(result.response?.candidateRules.length, 0, 'missing timestamps prevent response candidates without changing decisions');
+  assert.equal(result.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
 
   const responderRoot = join(temporaryRoot, 'responder-check');
   await mkdir(join(responderRoot, 'xdr'), { recursive: true });
