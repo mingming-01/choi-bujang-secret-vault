@@ -89,14 +89,26 @@ function normalizeSource(source) {
 // Request pattern IDs intentionally match the standalone decide.mjs patterns.
 // Fixture doc-* markers, descriptions and data.count are not attack evidence.
 function getWebInjectionPatterns(alert) {
-  const url = typeof alert?.data?.url === 'string' ? decodeRequest(alert.data.url) : '';
+  const requestText = [
+    alert?.data?.url,
+    alert?.data?.uri,
+    alert?.url,
+    alert?.requestUrl,
+    alert?.request,
+  ]
+    .filter((value) => typeof value === 'string')
+    .map(decodeRequest)
+    .join(' ');
   const patterns = [];
-  if (/\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i.test(url)) {
+  if (/\bunion\s+(?:all\s+)?select\b|\bselect\s+[\w`'"*.,()+%\-\s]{1,100}\s+from\s+[\w`".]+|(?:\bor\b|\band\b)\s+['"]?[\w-]+['"]?\s*=\s*['"]?[\w-]+['"]?|['"]\s*(?:or|and)\b|--(?:\s|$)|\/\*/i.test(requestText)) {
     patterns.push('sql-injection');
   }
-  if (/<\s*\/?\s*script\b[^>]*>/i.test(url)) patterns.push('script-tag');
-  if (/(?:\.\.[/\\]){2,}/i.test(url)) patterns.push('path-traversal');
-  return { sourceAddress: normalizeSource(alert?.data?.srcip), patterns };
+  if (/<\s*\/?\s*script\b[^>]*>/i.test(requestText)) patterns.push('script-tag');
+  if (/(?:\.\.[/\\]){2,}/i.test(requestText)) patterns.push('path-traversal');
+  return {
+    sourceAddress: normalizeSource(alert?.sourceAddress ?? alert?.source ?? alert?.data?.srcip),
+    patterns,
+  };
 }
 
 export async function runXdr({ root, moduleKey, writeError = (line) => console.error(line) }) {

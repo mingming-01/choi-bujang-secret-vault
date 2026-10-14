@@ -21,6 +21,68 @@ function safeLogValue(value, fallback = '-') {
   return String(value).replace(/[\u0000-\u001f\u007f]/g, ' ');
 }
 
+function parseIpv4(value) {
+  const parts = value.split('.');
+  if (parts.length !== 4) return null;
+
+  const octets = [];
+  for (const part of parts) {
+    if (!/^(?:0|[1-9]\d{0,2})$/.test(part)) return null;
+    const octet = Number(part);
+    if (octet > 255) return null;
+    octets.push(octet);
+  }
+  return octets;
+}
+
+function parseIpv6(value) {
+  if (!value.includes(':') || value.includes('%')) return null;
+
+  let input = value.toLowerCase();
+  if (input.includes('.')) {
+    const lastColon = input.lastIndexOf(':');
+    if (lastColon < 0) return null;
+    const ipv4 = parseIpv4(input.slice(lastColon + 1));
+    if (!ipv4) return null;
+    const high = ((ipv4[0] << 8) | ipv4[1]).toString(16);
+    const low = ((ipv4[2] << 8) | ipv4[3]).toString(16);
+    input = `${input.slice(0, lastColon + 1)}${high}:${low}`;
+  }
+
+  const compressionIndex = input.indexOf('::');
+  if (compressionIndex !== -1 && input.indexOf('::', compressionIndex + 2) !== -1) return null;
+
+  const compressed = compressionIndex !== -1;
+  const leftText = compressed ? input.slice(0, compressionIndex) : input;
+  const rightText = compressed ? input.slice(compressionIndex + 2) : '';
+  const left = leftText ? leftText.split(':') : [];
+  const right = rightText ? rightText.split(':') : [];
+  const groups = [...left, ...right];
+
+  if (!groups.every((group) => /^[0-9a-f]{1,4}$/.test(group))) return null;
+  if (compressed) {
+    if (groups.length >= 8) return null;
+    const zeros = Array(8 - groups.length).fill('0');
+    return [...left, ...zeros, ...right].map((group) => Number.parseInt(group, 16));
+  }
+  if (groups.length !== 8) return null;
+  return groups.map((group) => Number.parseInt(group, 16));
+}
+
+function normalizeIp(value) {
+  if (typeof value !== 'string') return '';
+  const input = value.trim();
+  if (!input || /[\s/]/.test(input)) return '';
+
+  const ipv4 = parseIpv4(input);
+  if (ipv4) return ipv4.join('.');
+
+  const ipv6 = parseIpv6(input);
+  return ipv6
+    ? ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':')
+    : '';
+}
+
 export async function respond({ root, decisions, alerts }) {
   const decisionList = Array.isArray(decisions) ? decisions : [];
   const alertList = Array.isArray(alerts) ? alerts : [];
@@ -32,9 +94,11 @@ export async function respond({ root, decisions, alerts }) {
     const alertId = typeof decision?.alertId === 'string' ? decision.alertId : '';
     const alert = alertList.find((item) => item?.id === alertId);
     const timestamp = safeLogValue(alert?.timestamp);
-    const sourceAddress = alert?.data?.srcip;
-    const hasValidSource = typeof sourceAddress === 'string' && sourceAddress.trim() !== '';
-    const source = hasValidSource ? safeLogValue(sourceAddress) : '-';
+    // Keep source selection consistent with decide.mjs and xdr-run.mjs.
+    const sourceValue = alert?.sourceAddress ?? alert?.source ?? alert?.data?.srcip;
+    const normalizedSource = normalizeIp(sourceValue);
+    const hasValidSource = normalizedSource !== '';
+    const source = hasValidSource ? normalizedSource : '-';
     const action = safeLogValue(decision?.action, 'unknown');
 
     if (!alert) {
@@ -61,7 +125,7 @@ export async function respond({ root, decisions, alerts }) {
 
     const rule = {
       action: 'deny',
-      source: sourceAddress,
+      source: normalizedSource,
       expiresAt: expiration,
       sourceAlert: alert.id,
     };
