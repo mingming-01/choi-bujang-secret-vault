@@ -9,7 +9,6 @@ const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'partial-script-tag', regex: /<\s*\/?\s*script\b(?![^>]*>)/i },
   { id: 'single-traversal-segment', regex: /(?:\.\.[/\\])/i },
   { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
-  { id: 'bare-script-word', regex: /[?&][^=]+=["']?script(?:&|$)/i },
   { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
 

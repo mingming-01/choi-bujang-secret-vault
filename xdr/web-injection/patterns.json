@@ -47,11 +47,6 @@
       "flags": "i"
     },
     {
-      "id": "bare-script-word",
-      "source": "[?&][^=]+=[\"']?script(?:&|$)",
-      "flags": "i"
-    },
-    {
       "id": "command-separator",
       "source": "(?:;|&&|\\|\\|)\\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\\b",
       "flags": "i"

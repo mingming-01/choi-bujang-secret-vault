@@ -38,7 +38,7 @@ try {
       { id: 'normal', data: { srcip: '192.0.2.201', url: '/search?q=select-course', count: '1' } },
       { id: 'high-risk-metadata-only', rule: { level: 10, mitre: ['T1190'] }, data: { srcip: '192.0.2.205', url: '/search?q=select-course', count: '1' } },
       { id: 'ambiguous-partial-sql', data: { srcip: '192.0.2.206', url: '/search?q=UNION%20' } },
-      { id: 'ambiguous-bare-script', data: { srcip: '192.0.2.207', url: '/search?q=script' } },
+      { id: 'ambiguous-bare-script', data: { srcip: '192.0.2.207', url: '/search?q=%3Cscript' } },
       { id: 'ambiguous-single-traversal', data: { srcip: '192.0.2.208', url: '/files?path=../notes' } },
       { id: 'ambiguous-command-separator', data: { srcip: '192.0.2.209', url: '/search?q=hello%3Bwhoami' } },
       { id: 'ambiguous-isolated-quote', data: { srcip: '192.0.2.210', url: '/search?q=%27' } },

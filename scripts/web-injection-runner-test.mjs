@@ -24,7 +24,7 @@ try {
   const expected = new Map([
     ['wi-01', 'block'], ['wi-02', 'alert'], ['wi-03', 'block'], ['wi-04', 'block'],
     ['wi-05', 'alert'], ['wi-06', 'alert'], ['wi-07', 'block'], ['wi-08', 'alert'],
-    ['wi-09', 'alert'], ['wi-10', 'record'], ['wi-11', 'alert'], ['wi-12', 'alert'],
+    ['wi-09', 'alert'], ['wi-10', 'record'], ['wi-11', 'record'], ['wi-12', 'alert'],
     ['wi-13', 'record'], ['wi-14', 'record'], ['wi-15', 'alert'], ['wi-16', 'alert'],
     ['wi-17', 'alert'],
     ...['wi-18', 'wi-19', 'wi-20', 'wi-21', 'wi-22', 'wi-23', 'wi-24', 'wi-25', 'wi-26']
@@ -41,7 +41,7 @@ try {
     ['wi-08', 'clear but single SQL pattern, so alert'],
     ['wi-09', 'isolated quote in actual request, so alert'],
     ['wi-10', 'ordinary select word in a course name'],
-    ['wi-11', 'bare script word without an HTML tag; review only'],
+    ['wi-11', 'ordinary script word without an HTML tag; record'],
     ['wi-12', 'single traversal segment; review only'],
     ['wi-13', 'ordinary request; metadata does not escalate it'],
     ['wi-14', 'ordinary SQL course title; no injection syntax'],
@@ -58,7 +58,7 @@ try {
     assert.equal(byId.get(alert.id)?.action, expected.get(alert.id), `${alert.id}: ${basis.get(alert.id) ?? 'ordinary input'}`);
   }
   assert.equal(expected.size, fixture.alerts.length);
-  assert.deepEqual(actual.counts, { block: 4, alert: 10, record: 12 });
+  assert.deepEqual(actual.counts, { block: 4, alert: 9, record: 13 });
   assert.equal(actual.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
   assert.equal(actual.response?.candidateRules.length, 4, 'only repeated actual attacks become expiring candidate rules');
   assert.equal(actual.response?.blockedCandidates, 4);

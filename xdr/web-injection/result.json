@@ -64,9 +64,9 @@
     },
     {
       "alertId": "wi-11",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-12",
@@ -161,8 +161,8 @@
   ],
   "counts": {
     "block": 4,
-    "alert": 10,
-    "record": 12
+    "alert": 9,
+    "record": 13
   },
   "response": {
     "candidateRules": [
