@@ -29,13 +29,16 @@ function isPlainDataObject(value, expectedKeys) {
 
 function isFreshUtcIsoTimestamp(value) {
   if (typeof value !== 'string') return false;
+
   const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,3}))?Z$/u.exec(value);
   if (!match) return false;
 
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return false;
+
   const milliseconds = (match[2] ?? '').padEnd(3, '0');
   const canonicalUtc = `${match[1]}.${milliseconds}Z`;
+
   return new Date(timestamp).toISOString() === canonicalUtc
     && Math.abs(Date.now() - timestamp) <= 5000;
 }
