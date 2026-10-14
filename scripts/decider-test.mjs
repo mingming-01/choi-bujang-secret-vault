@@ -20,34 +20,79 @@ function validResponse(request, response, ruleIds) {
 // Local practice only. The class engine and the server judge validate live requests separately.
 export async function checkDecider({ decide, ruleIds }) {
   if (typeof decide !== 'function' || !Array.isArray(ruleIds)
-      || !ruleIds.includes('device_registered')) {
-    throw new Error('6단계 device_registered 규칙을 먼저 구현하고 RULE_IDS에 적어 주세요.');
+      || !ruleIds.includes('device_registered')
+      || !ruleIds.includes('composite_access_anomaly')) {
+    throw new Error('device_registered 및 composite_access_anomaly 규칙을 RULE_IDS에 구현해 주세요.');
   }
   const { normal, suspicious } = fixtureRequests();
+  const withNewId = request => ({ ...request, requestId: randomUUID() });
   const checks = [
-    { name: '등록 기기의 정상 요청', request: normal, decision: 'allow', reasonCode: 'approved' },
-    { name: '미등록 기기의 가상 요청', request: { ...normal, requestId: randomUUID(),
-      deviceRegistered: false }, decision: 'deny', reasonCode: 'device_not_registered' },
+    { name: '등록 기기의 정상 요청', request: normal, decision: 'allow',
+      reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '복합 이상 접속은 추가 확인', request: suspicious, decision: 'step_up',
+      reasonCode: 'composite_anomaly_step_up', ruleIds: ['composite_access_anomaly'] },
+    { name: '지역 신호만으로 이상 판정하지 않음', request: withNewId({ ...normal,
+      signals: { ...normal.signals, region: 'foreign' },
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '대량 조회와 첫 네트워크만으로 추가 확인하지 않음', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, network: 'first_seen' },
+      recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }],
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '늦은 시각과 대량 조회만으로 추가 확인하지 않음', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, hour: 3 },
+      recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }],
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '출처가 없는 신호와 대량 조회만으로 추가 확인하지 않음', request: withNewId({
+      ...normal,
+      signals: { source: 'none', region: 'unknown', network: 'unknown', hour: 3 },
+      recentEvents: [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }],
+    }), decision: 'allow', reasonCode: 'approved', ruleIds: ['device_registered'] },
+    { name: '불명확한 출처의 복합 주장도 거부하고 step_up 근거로 쓰지 않음', request: withNewId({
+      ...suspicious,
+      signals: { ...suspicious.signals, source: 'client' },
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '미등록 기기의 가상 요청', request: withNewId({ ...normal,
+      deviceRegistered: false }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
     { name: '등록 여부가 누락된 요청', request: (() => {
       const { deviceRegistered, ...request } = normal;
-      return { ...request, requestId: randomUUID() };
-    })(), decision: 'deny', reasonCode: 'device_not_registered' },
+      return withNewId(request);
+    })(), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '필수 접속 정보가 누락된 요청', request: (() => {
+      const { signals, ...request } = normal;
+      return withNewId(request);
+    })(), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '시각 신호가 누락된 요청', request: withNewId({ ...normal,
+      signals: (({ hour, ...signals }) => signals)(normal.signals),
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '행동 사건 목록이 누락된 요청', request: (() => {
+      const { recentEvents, ...request } = normal;
+      return withNewId(request);
+    })(), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '클라이언트 임의 헤더가 추가된 요청', request: withNewId({
+      ...normal, headers: { 'x-forwarded-for': '192.0.2.1' },
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
+    { name: '미확인 출처에서 지역·네트워크를 주장한 요청', request: withNewId({
+      ...normal,
+      signals: { ...normal.signals, source: 'none', region: 'foreign', network: 'unusual' },
+    }), decision: 'deny', reasonCode: 'device_not_registered',
+      ruleIds: ['device_registered'] },
   ];
-  if (ruleIds.includes('step_up_required')) {
-    checks.push(
-      { name: '복합 이상 접속', request: suspicious, decision: 'step_up',
-        reasonCode: 'step_up_required' },
-      { name: '다시 확인한 복합 이상 접속', request: { ...suspicious,
-        requestId: randomUUID(), stepUp: { verified: true, authAgeSeconds: 60 } },
-      decision: 'allow' },
-    );
-  }
   const results = [];
   for (const item of checks) {
     const response = await decide(item.request);
     const valid = validResponse(item.request, response, ruleIds)
       && response.decision === item.decision
-      && (!item.reasonCode || response.reasonCode === item.reasonCode);
+      && response.reasonCode === item.reasonCode
+      && JSON.stringify(response.ruleIds) === JSON.stringify(item.ruleIds);
     results.push({ name: item.name, passed: valid });
   }
   return results;

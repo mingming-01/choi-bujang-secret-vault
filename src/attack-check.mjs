@@ -75,35 +75,39 @@ async function requestJson(url, options = {}) {
 
 async function runLocalDeviceRegistrationChecks() {
   const { decide, RULE_IDS } = await import('./decider.mjs');
+  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
   if (typeof decide !== 'function' || !Array.isArray(RULE_IDS)
       || !RULE_IDS.includes('device_registered')) {
     throw new Error('6단계 로컬 점검에 필요한 device_registered 판정 규칙을 확인할 수 없습니다.');
   }
 
+  const registeredRequest = fixtureRequests().normal;
+  const unregisteredRequest = fixtureRequests().normal;
+  const missingRegistrationBase = fixtureRequests().normal;
+  const { deviceRegistered, ...withoutDeviceRegistration } = missingRegistrationBase;
   const checks = [
     {
       attackId: 'device_registered_allow',
       expected: 'deviceRegistered=true인 로컬 가상 요청은 allow',
-      request: { requestId: 'local-step6-registered', deviceRegistered: true },
+      request: registeredRequest,
       decision: 'allow',
       reasonCode: 'approved',
     },
     {
       attackId: 'device_not_registered_deny',
       expected: 'deviceRegistered=false인 로컬 가상 요청은 deny 및 device_not_registered',
-      request: { requestId: 'local-step6-unregistered', deviceRegistered: false },
+      request: { ...unregisteredRequest, deviceRegistered: false },
       decision: 'deny',
       reasonCode: 'device_not_registered',
     },
     {
       attackId: 'device_registration_missing_deny',
       expected: 'deviceRegistered가 누락된 로컬 가상 요청은 deny 및 device_not_registered',
-      request: { requestId: 'local-step6-missing' },
+      request: withoutDeviceRegistration,
       decision: 'deny',
       reasonCode: 'device_not_registered',
     },
   ];
-
 
   const results = [];
 
@@ -113,7 +117,9 @@ async function runLocalDeviceRegistrationChecks() {
       && response.ruleIds.length === 1
       && response.ruleIds[0] === 'device_registered';
 
-    const passed = response?.decision === check.decision
+    const passed = response?.schema === 'aleph.decision.v1'
+      && response?.requestId === check.request.requestId
+      && response?.decision === check.decision
       && response?.reasonCode === check.reasonCode
       && validRuleIds;
 
@@ -134,12 +140,92 @@ async function runLocalDeviceRegistrationChecks() {
   }
 
   return results;
+}
 
+function matchesExpectedDecision(request, response, expected) {
+  const responseKeys = response && typeof response === 'object' && !Array.isArray(response)
+    ? Object.keys(response).sort().join(',')
+    : '';
+
+  return responseKeys === 'decision,reasonCode,requestId,ruleIds,schema'
+    && response.schema === 'aleph.decision.v1'
+    && response.requestId === request.requestId
+    && response.decision === expected.decision
+    && response.reasonCode === expected.reasonCode
+    && Array.isArray(response.ruleIds)
+    && response.ruleIds.length === expected.ruleIds.length
+    && response.ruleIds.every((ruleId, index) => ruleId === expected.ruleIds[index]);
+}
+
+async function runLocalStepSevenChecks() {
+  const { decide, RULE_IDS } = await import('./decider.mjs');
+  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+  const requiredRuleIds = ['device_registered', 'composite_access_anomaly'];
+
+  if (typeof decide !== 'function' || !Array.isArray(RULE_IDS)
+      || requiredRuleIds.some(ruleId => !RULE_IDS.includes(ruleId))) {
+    throw new Error('7단계 로컬 점검에 필요한 판정 함수 또는 규칙 ID를 확인할 수 없습니다.');
+  }
+
+  const { normal, suspicious } = fixtureRequests();
+  const regionBaseline = fixtureRequests().normal;
+  const regionOnly = {
+    ...regionBaseline,
+    signals: { ...regionBaseline.signals, region: 'foreign' },
+  };
+  const checks = [
+    {
+      attackId: 'step7_normal_fixture_allow',
+      expected: '기존 정상 가상 요청은 allow',
+      request: normal,
+      decision: 'allow',
+      reasonCode: 'approved',
+      ruleIds: ['device_registered'],
+    },
+    {
+      attackId: 'step7_composite_anomaly_fixture_step_up',
+      expected: '기존 복합 이상 가상 요청은 step_up',
+      request: suspicious,
+      decision: 'step_up',
+      reasonCode: 'composite_anomaly_step_up',
+      ruleIds: ['composite_access_anomaly'],
+    },
+    {
+      attackId: 'step7_region_only_allow',
+      expected: '지역 신호만으로는 이상 판정하지 않고 allow',
+      request: regionOnly,
+      decision: 'allow',
+      reasonCode: 'approved',
+      ruleIds: ['device_registered'],
+    },
+  ];
+  const verified = [];
+
+  for (const check of checks) {
+    const response = await decide(check.request);
+    if (!matchesExpectedDecision(check.request, response, check)) {
+      throw new Error(
+        `7단계 로컬 점검 실패: ${check.attackId}의 schema, requestId, decision, reasonCode 또는 ruleIds가 기대값과 다릅니다.`
+      );
+    }
+    verified.push({ check, response });
+  }
+
+  // 결과는 모든 fixture 응답의 전체 형식과 기대 판정이 확인된 뒤에만 반환한다.
+  return verified.map(({ check, response }) => ({
+    attackId: check.attackId,
+    expected: check.expected,
+    observed: `로컬 fixture에서 실제 decide() 응답 확인 (schema=${response.schema}, decision=${response.decision}, reasonCode=${response.reasonCode}, ruleIds=${response.ruleIds.join(',')})`,
+  }));
 }
 
 export async function runAttackChecks(config) {
   if (config.step === 6) {
     return runLocalDeviceRegistrationChecks();
+  }
+
+  if (config.step === 7) {
+    return runLocalStepSevenChecks();
   }
 
   if (config.step !== 4 && config.step !== 5) {
@@ -332,7 +418,7 @@ export async function runAttackChecks(config) {
     }
   }
 
-  // 5. B가 자신의 임시 메모 생성
+  // 5단계: B가 자신의 임시 메모 생성
   const bCreate = await requestJson(notesUrl, {
     method: 'POST',
     headers: {
