@@ -1,0 +1,29 @@
+실행기 경보 판정 테스트 계약: 26개 fixture
+wi-01 | clear SQL injection and independent wi-04 repeat from the same source | block
+wi-02 | actual script tag; only one event, so alert | alert
+wi-03 | repeated traversal and independent wi-07 repeat from the same source | block
+wi-04 | clear SQL injection and independent wi-01 repeat from the same source | block
+wi-05 | SQL and script patterns overlap; ambiguous, never block | alert
+wi-06 | suspicious command separator and command token in request | alert
+wi-07 | repeated traversal and independent wi-03 repeat from the same source | block
+wi-08 | clear but single SQL pattern, so alert | alert
+wi-09 | isolated quote in actual request, so alert | alert
+wi-10 | ordinary select word in a course name | record
+wi-11 | bare script word without an HTML tag; review only | alert
+wi-12 | single traversal segment; review only | alert
+wi-13 | ordinary request; metadata does not escalate it | record
+wi-14 | ordinary SQL course title; no injection syntax | record
+wi-15 | partial UNION request signal | alert
+wi-16 | incomplete script tag in request | alert
+wi-17 | suspicious command separator in request | alert
+wi-18 | ordinary input | record
+wi-19 | ordinary input | record
+wi-20 | ordinary input | record
+wi-21 | ordinary input | record
+wi-22 | ordinary input | record
+wi-23 | ordinary input | record
+wi-24 | ordinary input | record
+wi-25 | ordinary input | record
+wi-26 | ordinary input | record
+집계 기대값: block 4 / alert 10 / record 12
+응답 후보: 4, ZTNA 적용=false

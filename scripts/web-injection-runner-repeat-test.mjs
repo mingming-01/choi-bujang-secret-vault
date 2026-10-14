@@ -37,6 +37,11 @@ try {
       { id: 'count-only', data: { srcip: '192.0.2.203', url: '/search?q=select-course', count: '90' } },
       { id: 'normal', data: { srcip: '192.0.2.201', url: '/search?q=select-course', count: '1' } },
       { id: 'high-risk-metadata-only', rule: { level: 10, mitre: ['T1190'] }, data: { srcip: '192.0.2.205', url: '/search?q=select-course', count: '1' } },
+      { id: 'ambiguous-partial-sql', data: { srcip: '192.0.2.206', url: '/search?q=UNION%20' } },
+      { id: 'ambiguous-bare-script', data: { srcip: '192.0.2.207', url: '/search?q=script' } },
+      { id: 'ambiguous-single-traversal', data: { srcip: '192.0.2.208', url: '/files?path=../notes' } },
+      { id: 'ambiguous-command-separator', data: { srcip: '192.0.2.209', url: '/search?q=hello%3Bwhoami' } },
+      { id: 'ambiguous-isolated-quote', data: { srcip: '192.0.2.210', url: '/search?q=%27' } },
     ],
   };
   await writeFile(join(fixtureDir, 'web-injection.json'), `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
@@ -57,8 +62,11 @@ try {
   assert.equal(actualById.get('description-attack-words-only')?.action, 'record', 'attack words and repetition claims in a description are not request signals');
   assert.equal(actualById.get('count-only')?.action, 'record', 'count-only is not an attack signal');
   assert.equal(actualById.get('normal')?.action, 'record', 'normal event remains record');
-  assert.equal(actualById.get('high-risk-metadata-only')?.action, 'alert', 'high-risk metadata requests review but cannot block');
-  assert.deepEqual(result.counts, { block: 4, alert: 7, record: 5 });
+  assert.equal(actualById.get('high-risk-metadata-only')?.action, 'record', 'metadata alone does not create a request signal');
+  for (const id of ['ambiguous-partial-sql', 'ambiguous-bare-script', 'ambiguous-single-traversal', 'ambiguous-command-separator', 'ambiguous-isolated-quote']) {
+    assert.equal(actualById.get(id)?.action, 'alert', `${id} is a request-level ambiguous signal`);
+  }
+  assert.deepEqual(result.counts, { block: 4, alert: 11, record: 6 });
   assert.equal(result.response?.candidateRules.length, 0, 'missing timestamps prevent response candidates without changing decisions');
   assert.equal(result.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
 

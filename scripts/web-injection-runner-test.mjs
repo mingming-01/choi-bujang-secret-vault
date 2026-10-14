@@ -22,29 +22,32 @@ try {
 
   const actual = await runXdr({ root: temporaryRoot, moduleKey: 'web-injection', writeError: (line) => { throw new Error(line); } });
   const expected = new Map([
-    ...['wi-01', 'wi-02', 'wi-03', 'wi-04', 'wi-05', 'wi-06', 'wi-07', 'wi-08']
-      .map((id) => [id, 'alert']),
-    ...['wi-09', 'wi-10', 'wi-11', 'wi-12', 'wi-13', 'wi-14', 'wi-15', 'wi-16', 'wi-17', 'wi-18', 'wi-19', 'wi-20', 'wi-21', 'wi-22', 'wi-23', 'wi-24', 'wi-25', 'wi-26']
+    ['wi-01', 'block'], ['wi-02', 'alert'], ['wi-03', 'block'], ['wi-04', 'block'],
+    ['wi-05', 'alert'], ['wi-06', 'alert'], ['wi-07', 'block'], ['wi-08', 'alert'],
+    ['wi-09', 'alert'], ['wi-10', 'record'], ['wi-11', 'alert'], ['wi-12', 'alert'],
+    ['wi-13', 'record'], ['wi-14', 'record'], ['wi-15', 'alert'], ['wi-16', 'alert'],
+    ['wi-17', 'alert'],
+    ...['wi-18', 'wi-19', 'wi-20', 'wi-21', 'wi-22', 'wi-23', 'wi-24', 'wi-25', 'wi-26']
       .map((id) => [id, 'record']),
   ]);
   const basis = new Map([
-    ['wi-01', 'high level + T1190 is review-only; description count and doc marker are not attack evidence'],
-    ['wi-02', 'high level + T1190 is review-only; script and count claims are metadata only'],
-    ['wi-03', 'high level + T1190 is review-only; URL has no traversal pattern'],
-    ['wi-04', 'high level + T1190 is review-only; description count is not separate alert evidence'],
-    ['wi-05', 'high level + T1190 is review-only; description-only overlapping claims are not request evidence'],
-    ['wi-06', 'high level + T1190 is review-only; command-separator description is not supported request syntax'],
-    ['wi-07', 'high level + T1190 is review-only; URL has no traversal pattern'],
-    ['wi-08', 'high level + T1190 is review-only; database query claim is not request evidence'],
-    ['wi-09', 'description-only quote claim, absent from URL'],
-    ['wi-10', 'benign course-name use of select'],
-    ['wi-11', 'class word script, not an actual tag'],
-    ['wi-12', 'benign path word up'],
-    ['wi-13', 'no request attack signal; severity is below review threshold'],
-    ['wi-14', 'benign SQL course notice title'],
-    ['wi-15', 'description-only vague hint'],
-    ['wi-16', 'description-only injection-like hint'],
-    ['wi-17', 'description-only delimiter hint'],
+    ['wi-01', 'clear SQL injection and independent wi-04 repeat from the same source'],
+    ['wi-02', 'actual script tag; only one event, so alert'],
+    ['wi-03', 'repeated traversal and independent wi-07 repeat from the same source'],
+    ['wi-04', 'clear SQL injection and independent wi-01 repeat from the same source'],
+    ['wi-05', 'SQL and script patterns overlap; ambiguous, never block'],
+    ['wi-06', 'suspicious command separator and command token in request'],
+    ['wi-07', 'repeated traversal and independent wi-03 repeat from the same source'],
+    ['wi-08', 'clear but single SQL pattern, so alert'],
+    ['wi-09', 'isolated quote in actual request, so alert'],
+    ['wi-10', 'ordinary select word in a course name'],
+    ['wi-11', 'bare script word without an HTML tag; review only'],
+    ['wi-12', 'single traversal segment; review only'],
+    ['wi-13', 'ordinary request; metadata does not escalate it'],
+    ['wi-14', 'ordinary SQL course title; no injection syntax'],
+    ['wi-15', 'partial UNION request signal'],
+    ['wi-16', 'incomplete script tag in request'],
+    ['wi-17', 'suspicious command separator in request'],
   ]);
 
   assert.equal(actual.decisions.length, fixture.alerts.length);
@@ -55,12 +58,13 @@ try {
     assert.equal(byId.get(alert.id)?.action, expected.get(alert.id), `${alert.id}: ${basis.get(alert.id) ?? 'ordinary input'}`);
   }
   assert.equal(expected.size, fixture.alerts.length);
-  assert.deepEqual(actual.counts, { block: 0, alert: 8, record: 18 });
+  assert.deepEqual(actual.counts, { block: 4, alert: 10, record: 12 });
   assert.equal(actual.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
-  assert.deepEqual(actual.response?.candidateRules, [], 'fixture has no repeated actual attack pattern to block');
-  assert.equal(fixture.alerts.filter((alert) => alert.rule.level <= 3).filter((alert) => byId.get(alert.id).action !== 'record').length, 0, 'normal events remain record');
+  assert.equal(actual.response?.candidateRules.length, 4, 'only repeated actual attacks become expiring candidate rules');
+  assert.equal(actual.response?.blockedCandidates, 4);
+  assert.equal(fixture.alerts.filter((alert) => alert.id >= 'wi-18' && byId.get(alert.id).action !== 'record').length, 0, 'normal events remain record');
 
-  console.log(`실행기 경보 판정 테스트 계약 확인: ${fixture.alerts.length}개`);
+  console.log(`실행기 경보 판정 테스트 계약: ${fixture.alerts.length}개 fixture`);
   for (const alert of fixture.alerts) console.log(`${alert.id} | ${basis.get(alert.id) ?? 'ordinary input'} | ${byId.get(alert.id).action}`);
   console.log(`집계 기대값: block ${actual.counts.block} / alert ${actual.counts.alert} / record ${actual.counts.record}`);
   console.log(`응답 후보: ${actual.response?.blockedCandidates ?? 0}, ZTNA 적용=${actual.response?.appliedToZtna}`);

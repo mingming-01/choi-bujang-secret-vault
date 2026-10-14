@@ -5,10 +5,12 @@ const DEFAULT_PATTERNS = [
   { id: 'path-traversal', regex: /(?:\.\.[/\\]){2,}/i },
 ];
 const DEFAULT_AMBIGUOUS_PATTERNS = [
-  { id: 'partial-sql', regex: /\bunion\s+(?:all\s+)?$/i },
+  { id: 'partial-sql', regex: /\bunion\s+(?:all\s+)?$|\bselect\s+(?:\*|[\w`"']+(?:\s*,\s*[\w`"']+)*)\s*$/i },
   { id: 'partial-script-tag', regex: /<\s*\/?\s*script\b(?![^>]*>)/i },
   { id: 'single-traversal-segment', regex: /(?:\.\.[/\\])/i },
-  { id: 'isolated-quote', regex: /['"]/i },
+  { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
+  { id: 'bare-script-word', regex: /[?&][^=]+=["']?script(?:&|$)/i },
+  { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
 
 function compileDefinitions(definitions) {
@@ -168,18 +170,8 @@ function hasValidCorrelation(alert, patternName, source) {
     && alertIds.has(alertId);
 }
 
-function hasHighRiskReviewMetadata(alert) {
-  const level = alert?.rule?.level;
-  const mitre = alert?.rule?.mitre;
-  return typeof level === 'number'
-    && Number.isFinite(level)
-    && level >= 10
-    && Array.isArray(mitre)
-    && mitre.includes('T1190');
-}
-
-// The decider remains standalone and side-effect free. The runner may attach
-// the already-loaded patterns.json config as in-memory webInjectionConfig.
+// Pure decision: request evidence determines severity; only runner-supplied,
+// validated distinct-event correlation can elevate a single pattern to block.
 export function decide(alert) {
   const settings = getSettings(alert);
   const requestText = getRequestText(alert, settings);
@@ -192,17 +184,14 @@ export function decide(alert) {
 
   if (patterns.length === 0) {
     if (matchingIds(requestText, settings.ambiguousPatterns).length > 0) {
-      return result('alert', 0.6, 'ambiguous-request-signal: 요청 데이터에 불완전한 주입 신호가 있어 검토 대상으로 분류');
-    }
-    if (hasHighRiskReviewMetadata(alert)) {
-      return result('alert', 0.55, 'high-risk-review-metadata: 심각도와 T1190이 함께 있어 검토 대상으로 분류; 공격 증거나 차단 근거는 아님');
+      return result('alert', 0.6, 'ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류');
     }
     return result('record', 0.08, 'normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
   }
 
   const patternName = patterns[0];
   if (hasValidCorrelation(alert, patternName, source)) {
-    return result('block', 0.92, `${patternName}: 동일 출처의 서로 다른 경보에서 같은 패턴 확인`);
+    return result('block', 0.92, `${patternName}: 유효한 출처에서 서로 다른 경보 ID의 동일 패턴 반복 확인`);
   }
   return result('alert', 0.68, `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`);
 }

@@ -1,0 +1,24 @@
+실행기 반복 집계 확인: 동일 출처·패턴의 고유 경보 ID만 차단 근거이며 marker/설명/count는 공격 신호가 아님
+same-a | block
+same-b | block
+different-pattern | alert
+different-source | alert
+duplicate-id | alert
+duplicate-id | alert
+invalid-ip-a | alert
+invalid-ip-b | alert
+ipv6-mapped-a | block
+ipv6-mapped-b | block
+marker-count | record
+description-only | record
+description-attack-words-only | record
+count-only | record
+normal | record
+high-risk-metadata-only | record
+ambiguous-partial-sql | alert
+ambiguous-bare-script | alert
+ambiguous-single-traversal | alert
+ambiguous-command-separator | alert
+ambiguous-isolated-quote | alert
+집계: block 4 / alert 11 / record 6
+응답기 확인: 유효한 대체 출처 필드에서 후보 생성, 잘못된 IP 출처는 거부

@@ -1,0 +1,6 @@
+ M scripts/web-injection-decide-test.mjs
+ M scripts/web-injection-runner-repeat-test.mjs
+ M scripts/web-injection-runner-test.mjs
+ M xdr/fixtures/web-injection.json
+ M xdr/web-injection/decide.mjs
+ M xdr/web-injection/patterns.json

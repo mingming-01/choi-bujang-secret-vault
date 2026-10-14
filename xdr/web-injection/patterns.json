@@ -8,27 +8,27 @@
       "name": "SQL 주입",
       "source": "\\bunion\\s+(?:all\\s+)?select\\b|\\bselect\\s+[\\w`'\u0022*.,()+%\\-\\s]{1,100}\\s+from\\s+[\\w`\u0022.]+|(?:\\bor\\b|\\band\\b)\\s+['\u0022]?[\\w-]+['\u0022]?\\s*=\\s*['\u0022]?[\\w-]+['\u0022]?|['\u0022]\\s*(?:or|and)\\b|--(?:\\s|$)|/\\*",
       "flags": "i",
-      "rationale": "실제 요청 문자열의 SQL 구문만 탐지합니다."
+      "rationale": "실제 요청의 SQL 주입 형태만 탐지하며 설명·count·표식은 사용하지 않습니다."
     },
     {
       "id": "script-tag",
       "name": "스크립트 태그",
       "source": "<\\s*\\/?\\s*script\\b[^>]*>",
       "flags": "i",
-      "rationale": "실제 요청 문자열의 HTML script 태그만 탐지합니다."
+      "rationale": "실제 요청의 여는 또는 닫는 script 태그만 탐지합니다."
     },
     {
       "id": "path-traversal",
       "name": "반복 경로 순회",
       "source": "(?:\\.\\.[/\\\\]){2,}",
       "flags": "i",
-      "rationale": "실제 요청 문자열에서 연속된 두 번 이상의 상위 경로 이동만 탐지합니다."
+      "rationale": "실제 요청의 연속된 두 번 이상 상위 경로 이동만 탐지합니다."
     }
   ],
   "ambiguousPatterns": [
     {
       "id": "partial-sql",
-      "source": "\\bunion\\s+(?:all\\s+)?$|\\bselect\\s*$",
+      "source": "\\bunion\\s+(?:all\\s+)?$|\\bselect\\s+(?:\\*|[\\w`'\u0022]+(?:\\s*,\\s*[\\w`'\u0022]+)*)\\s*$",
       "flags": "i"
     },
     {
@@ -43,14 +43,24 @@
     },
     {
       "id": "isolated-quote",
-      "source": "['\u0022]",
+      "source": "['\u0022](?=$|[&#\\s])|(?<=[?&=])['\u0022]",
+      "flags": "i"
+    },
+    {
+      "id": "bare-script-word",
+      "source": "[?&][^=]+=[\"']?script(?:&|$)",
+      "flags": "i"
+    },
+    {
+      "id": "command-separator",
+      "source": "(?:;|&&|\\|\\|)\\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\\b",
       "flags": "i"
     }
   ],
   "decisionPolicy": {
-    "block": "정확히 하나의 명확한 패턴과 유효한 출처, 동일 출처·동일 패턴을 가진 서로 다른 경보 ID가 2개 이상인 실행기 생성 상관 증거가 모두 필요합니다.",
-    "alert": "명확한 패턴이 있으나 반복 차단 근거가 없거나, 여러 패턴이 겹치거나, 요청 데이터에 부분 SQL/태그, 단일 경로 순회 또는 따옴표 신호가 있습니다. level 10 이상과 T1190 조합은 공격 증거가 아닌 검토 alert만 요청합니다.",
-    "record": "요청에 지정 패턴이나 요청상 모호 신호가 없고 고위험 검토 메타데이터 조합도 없습니다. 설명, marker, count는 공격 증거가 아닙니다.",
+    "block": "요청의 명확한 패턴 정확히 하나, 유효한 출처, 같은 출처·패턴의 서로 다른 경보 ID가 둘 이상이라는 실행기 계산 상관 근거가 모두 필요합니다.",
+    "alert": "명확한 단일 패턴이나 요청 데이터의 모호한 주입·명령 구분자 신호가 확인되거나, 패턴이 겹치는 경우입니다. 모호 패턴은 반복 차단 증거로 사용하지 않습니다.",
+    "record": "요청에 공격 또는 모호 신호가 없습니다. 설명, 심각도, MITRE 메타데이터, marker, count는 공격 증거가 아닙니다.",
     "confidenceThresholds": "block >= 0.85; alert >= 0.5 and < 0.85; record < 0.5"
   }
 }

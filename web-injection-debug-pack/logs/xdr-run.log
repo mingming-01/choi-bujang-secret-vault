@@ -1,0 +1,4 @@
+
+> xdr:run
+> node scripts/xdr-run.mjs web-injection
+

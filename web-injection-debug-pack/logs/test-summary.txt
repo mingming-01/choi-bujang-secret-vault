@@ -1,0 +1,8 @@
+실행: npm run xdr:run -- web-injection
+종료 코드: 0
+실행: node scripts/web-injection-decide-test.mjs
+종료 코드: 0
+실행: node scripts/web-injection-runner-test.mjs
+종료 코드: 0
+실행: node scripts/web-injection-runner-repeat-test.mjs
+종료 코드: 0
