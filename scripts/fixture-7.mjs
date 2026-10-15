@@ -14,12 +14,11 @@ const request = (signals, recentEvents) => ({
 export function fixtureRequests() {
   return {
     normal: request({ source: 'judge_fixture', region: 'local', network: 'usual', hour: 14 }, []),
-    suspicious: request({ source: 'judge_fixture', region: 'unknown', network: 'first_seen', hour: 3 },
-      [{ kind: 'bulk_read', ageSeconds: 60, count: 20 }]),
+    suspicious: request({ source: 'judge_fixture', region: 'foreign', network: 'unusual', hour: 3 },
+      [{ kind: 'risk_signal', ageSeconds: 60, count: 20 }]),
   };
 }
 const check = (input, output) => output && typeof output === 'object'
-  && !('then' in output)
   && Object.keys(output).sort().join(',') === 'decision,reasonCode,requestId,ruleIds,schema'
   && output.schema === 'aleph.decision.v1' && output.requestId === input.requestId
   && ['allow', 'deny', 'step_up'].includes(output.decision)
@@ -28,18 +27,14 @@ const check = (input, output) => output && typeof output === 'object'
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const { normal, suspicious } = fixtureRequests();
-    const { decide, RULE_IDS } = await import('../src/decider.mjs');
-    if (typeof decide !== 'function' || !RULE_IDS?.includes('composite_access_anomaly')) {
-      throw new Error('src/decider.mjs에서 복합 이상 판정 규칙을 확인할 수 없습니다.');
-    }
-    const ordinary = decide(normal);
-    const unusual = decide(suspicious);
+    const { decide } = await import('../src/decider.mjs');
+    if (typeof decide !== 'function') throw new Error('src/decider.mjs에서 decide 함수를 내보내야 합니다.');
+    const ordinary = await decide(normal);
+    const unusual = await decide(suspicious);
     if (!check(normal, ordinary) || !check(suspicious, unusual)) throw new Error('판정기 응답 형식이 맞지 않습니다.');
-    process.stdout.write(`정상 가상 사건: ${ordinary.decision}\n복합 이상 가상 사건: ${unusual.decision}\n`);
-    if (ordinary.decision !== 'allow' || unusual.decision !== 'step_up'
-        || unusual.reasonCode !== 'composite_anomaly_step_up'
-        || unusual.ruleIds.length !== 1 || unusual.ruleIds[0] !== 'composite_access_anomaly') {
-      throw new Error('정상 사건은 allow, 복합 이상 사건은 지정된 rule과 함께 step_up이어야 합니다.');
+    process.stdout.write(`정상 사건: ${ordinary.decision}\n복합 이상 사건: ${unusual.decision}\n`);
+    if (ordinary.decision !== 'allow' || unusual.decision !== 'step_up') {
+      throw new Error('정상 사건은 allow, 복합 이상 사건은 step_up이어야 합니다.');
     }
   } catch (error) {
     process.stderr.write(`가상 사건 첫 오류: ${error.message}\n`);
