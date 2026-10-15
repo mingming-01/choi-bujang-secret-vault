@@ -234,7 +234,7 @@ async function runLocalStep8Checks() {
     throw new Error(`8단계 자원 정책 점검 실패: ${failed.name}`);
   }
 
-  return checks.map((item, index) => ({
+  return checks.slice(-16).map((item, index) => ({
     attackId: `step8_local_${index + 1}`,
     expected: `${item.name}에 대한 판정이 과제의 허용·거부 조건과 일치해야 함`,
     observed: `로컬 가상 요청 점검 통과: ${item.name}`,
