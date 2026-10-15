@@ -183,105 +183,206 @@ function errorResponse(response, error) {
 }
 
 // POST /api/restore. A request without confirmation is a read-only preview.
-export default async function handler(request, response) {
-  response.setHeader('Cache-Control', 'no-store, max-age=0');
-  response.setHeader('X-Content-Type-Options', 'nosniff');
-  if (request.method !== 'POST') {
-    response.setHeader('Allow', 'POST');
-    return responseJson(response, 405, { error: 'METHOD_NOT_ALLOWED' });
-  }
+export function createRestoreHandler(
+  {
+    runtimeProvider = getRuntime,
+    backupLoader = loadVerifiedBackup,
+  } = {},
+) {
+  return async function handler(request, response) {
+    response.setHeader('Cache-Control', 'no-store, max-age=0');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
 
-  const input = parseBody(request);
-  if (!input) return responseJson(response, 400, { error: 'INVALID_RESTORE_REQUEST' });
-  const authorization = request.headers?.authorization;
-  if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
-    return responseJson(response, 401, { error: 'AUTHENTICATION_REQUIRED' });
-  }
+    if (request.method !== 'POST') {
+      response.setHeader('Allow', 'POST');
+      return responseJson(response, 405, {
+        error: 'METHOD_NOT_ALLOWED',
+      });
+    }
 
-  let currentRuntime;
-  let identity;
-  try {
-    currentRuntime = getRuntime();
-    identity = await currentRuntime.verifyLogin(authorization);
-  } catch {
-    return responseJson(response, 401, { error: 'INVALID_AUTHENTICATION' });
-  }
-  if (!identity || !['student', 'judge'].includes(identity.kind)
-      || (identity.kind === 'judge' && identity.identity !== 'b')) {
-    return responseJson(response, 403, { error: 'RESTORE_NOT_ALLOWED' });
-  }
+    const input = parseBody(request);
 
-  let backup;
-  let backupSha256;
-  try {
-    // Fetch and verify the server-held backup on every POST, including the commit POST.
-    ({ backup, backupSha256 } = await loadVerifiedBackup(currentRuntime));
-  } catch (error) {
-    return errorResponse(response, error);
-  }
-  if (input.id !== backup.id || input.ownerId !== backup.ownerId
+    if (!input) {
+      return responseJson(response, 400, {
+        error: 'INVALID_RESTORE_REQUEST',
+      });
+    }
+
+    const authorization = request.headers?.authorization;
+
+    if (
+      typeof authorization !== 'string'
+      || !authorization.startsWith('Bearer ')
+    ) {
+      return responseJson(response, 401, {
+        error: 'AUTHENTICATION_REQUIRED',
+      });
+    }
+
+    let currentRuntime;
+    let identity;
+
+    try {
+      currentRuntime = runtimeProvider();
+      identity = await currentRuntime.verifyLogin(authorization);
+    } catch {
+      return responseJson(response, 401, {
+        error: 'INVALID_AUTHENTICATION',
+      });
+    }
+
+    if (
+      !identity
+      || !['student', 'judge'].includes(identity.kind)
+      || (identity.kind === 'judge' && identity.identity !== 'b')
+    ) {
+      return responseJson(response, 403, {
+        error: 'RESTORE_NOT_ALLOWED',
+      });
+    }
+
+    let backup;
+    let backupSha256;
+
+    try {
+      // 백업은 미리보기 요청과 실제 복원 요청 모두에서 다시 검증한다.
+      ({ backup, backupSha256 } = await backupLoader(currentRuntime));
+    } catch (error) {
+      return errorResponse(response, error);
+    }
+
+    if (
+      input.id !== backup.id
+      || input.ownerId !== backup.ownerId
       || input.contentSha256 !== backup.contentSha256
-      || (identity.kind === 'student' && identity.userId !== backup.ownerId)) {
-    return responseJson(response, 403, { error: 'RESTORE_NOT_ALLOWED' });
-  }
+      || (
+        identity.kind === 'student'
+        && identity.userId !== backup.ownerId
+      )
+    ) {
+      return responseJson(response, 403, {
+        error: 'RESTORE_NOT_ALLOWED',
+      });
+    }
 
-  let current;
-  try {
-    current = await readCurrentMemo(currentRuntime.supabase, backup);
-  } catch (error) {
-    return errorResponse(response, error);
-  }
-  const plan = planFor(backup, current, backupSha256);
-  const preview = {
-    revision: backup.revision,
-    backupSha256,
-    target: { id: backup.id, ownerId: backup.ownerId, contentSha256: backup.contentSha256 },
-    changedFields: plan.changedFields,
-    confirmation: plan.confirmation,
-  };
-  if (input.confirmation === undefined) {
-    return responseJson(response, 200, { preview });
-  }
-  if (input.confirmation !== plan.confirmation) {
-    return responseJson(response, 409, { error: 'RESTORE_CONFIRMATION_REQUIRED', preview });
-  }
-  if (plan.changedFields.length === 0) {
-    return responseJson(response, 200, { restored: false, reason: 'ALREADY_MATCHES_BACKUP', ...preview });
-  }
+    let current;
 
-  try {
-    let writeResult;
-    if (current === null) {
-      writeResult = await currentRuntime.supabase.from('learning_notes').insert({
-        id: backup.id,
-        owner_id: backup.ownerId,
-        title: backup.title,
-        content: backup.content,
-      }).select('id').maybeSingle();
-    } else {
-      writeResult = await currentRuntime.supabase.from('learning_notes').update({
-        title: backup.title,
-        content: backup.content,
-      }).eq('id', backup.id).eq('owner_id', backup.ownerId)
-        .eq('title', current.title).eq('content', current.content)
-        .select('id').maybeSingle();
+    try {
+      current = await readCurrentMemo(
+        currentRuntime.supabase,
+        backup,
+      );
+    } catch (error) {
+      return errorResponse(response, error);
     }
-    if (writeResult.error || !writeResult.data) {
-      return responseJson(response, 409, { error: 'RESTORE_CONCURRENT_CHANGE' });
-    }
-    const restored = await readCurrentMemo(currentRuntime.supabase, backup);
-    if (!restored || restored.id !== backup.id || restored.ownerId !== backup.ownerId
-        || restored.title !== backup.title || sha256(restored.content) !== backup.contentSha256) {
-      return responseJson(response, 409, { error: 'RESTORE_POSTCHECK_FAILED' });
-    }
-    // Only the selected learning_notes row is written; audit tables and policy settings are not written.
-    return responseJson(response, 200, {
-      restored: true,
+
+    const plan = planFor(backup, current, backupSha256);
+
+    const preview = {
       revision: backup.revision,
-      target: { id: restored.id, ownerId: restored.ownerId, contentSha256: sha256(restored.content) },
+      backupSha256,
+      target: {
+        id: backup.id,
+        ownerId: backup.ownerId,
+        contentSha256: backup.contentSha256,
+      },
       changedFields: plan.changedFields,
-    });
-  } catch {
-    return responseJson(response, 502, { error: 'RESTORE_WRITE_FAILED' });
-  }
+      confirmation: plan.confirmation,
+    };
+
+    // 첫 요청은 복원 계획만 반환하고 데이터를 변경하지 않는다.
+    if (input.confirmation === undefined) {
+      return responseJson(response, 200, { preview });
+    }
+
+    // 현재 데이터 상태에 맞는 확인값인지 검사한다.
+    if (input.confirmation !== plan.confirmation) {
+      return responseJson(response, 409, {
+        error: 'RESTORE_CONFIRMATION_REQUIRED',
+        preview,
+      });
+    }
+
+    if (plan.changedFields.length === 0) {
+      return responseJson(response, 200, {
+        restored: false,
+        reason: 'ALREADY_MATCHES_BACKUP',
+        ...preview,
+      });
+    }
+
+    try {
+      let writeResult;
+
+      if (current === null) {
+        // 백업 대상 메모가 없으면 해당 메모 한 건만 추가한다.
+        writeResult = await currentRuntime.supabase
+          .from('learning_notes')
+          .insert({
+            id: backup.id,
+            owner_id: backup.ownerId,
+            title: backup.title,
+            content: backup.content,
+          })
+          .select('id')
+          .maybeSingle();
+      } else {
+        // 기존 메모는 확인 당시의 값이 그대로일 때만 수정한다.
+        writeResult = await currentRuntime.supabase
+          .from('learning_notes')
+          .update({
+            title: backup.title,
+            content: backup.content,
+          })
+          .eq('id', backup.id)
+          .eq('owner_id', backup.ownerId)
+          .eq('title', current.title)
+          .eq('content', current.content)
+          .select('id')
+          .maybeSingle();
+      }
+
+      if (writeResult.error || !writeResult.data) {
+        return responseJson(response, 409, {
+          error: 'RESTORE_CONCURRENT_CHANGE',
+        });
+      }
+
+      // 실제 저장된 결과를 다시 읽어 백업과 대조한다.
+      const restored = await readCurrentMemo(
+        currentRuntime.supabase,
+        backup,
+      );
+
+      if (
+        !restored
+        || restored.id !== backup.id
+        || restored.ownerId !== backup.ownerId
+        || restored.title !== backup.title
+        || sha256(restored.content) !== backup.contentSha256
+      ) {
+        return responseJson(response, 409, {
+          error: 'RESTORE_POSTCHECK_FAILED',
+        });
+      }
+
+      // 다른 메모, 감사 로그, 정책 설정은 이 핸들러에서 수정하지 않는다.
+      return responseJson(response, 200, {
+        restored: true,
+        revision: backup.revision,
+        target: {
+          id: restored.id,
+          ownerId: restored.ownerId,
+          contentSha256: sha256(restored.content),
+        },
+        changedFields: plan.changedFields,
+      });
+    } catch {
+      return responseJson(response, 502, {
+        error: 'RESTORE_WRITE_FAILED',
+      });
+    }
+  };
 }
+
+export default createRestoreHandler();
