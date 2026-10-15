@@ -49,3 +49,19 @@ npm run decider:test
 로컬 터미널에서 보고된 최근 결과는 등록 기기의 정상 요청, 미등록 기기의 가상 요청, 등록 여부가 누락된 요청 모두 **통과**입니다. 이 테스트는 가상 요청에 대한 로컬 판정기 연습이며, 공식 심판 통과의 증거가 아닙니다. 실제 API 접근통제나 운영 엔진의 동작도 이 결과로 검증된 것은 아니므로 별도로 확인해야 합니다.
 
 6단계 기록 시 `aleph.config.json`의 `step`은 `6`입니다. `npm run bundle`, Git 명령, 실제 ZTNA 정책 적용은 이번 문서·설정 갱신에서 수행하지 않았습니다.
+
+## 7단계: 평소와 다른 접속은 다시 확인합니다
+
+`src/decider.mjs`는 6단계의 기기 규칙을 유지하면서 규칙 `step_up_required` 하나를 더합니다. 등록 기기의 요청에서 아래 세 가지가 **모두** 있을 때만 `decision: 'step_up'`, `reasonCode: 'step_up_required'`를 반환합니다.
+
+- `signals.hour`가 0~5시 (평소와 다른 시각)
+- `signals.network`가 `'unusual'` (평소와 다른 네트워크)
+- `recentEvents`에 `kind: 'risk_signal'`이고 `ageSeconds` 600 이하, `count` 20 이상인 사건 (짧은 시간의 다량 읽기)
+
+한두 가지만 있거나 `signals.region`만 다른 요청은 `allow`입니다. 지역 하나만으로 차단하지 않습니다. `signals.source`가 `'judge_fixture'`가 아니면 그 신호를 근거로 쓰지 않으며, 빠진 값을 정상값으로 채우지 않습니다. 복합 이상 요청이라도 `stepUp.verified`가 `true`이고 `authAgeSeconds`가 0~900이면 `allow`입니다. 미등록 기기는 신호와 관계없이 `deny`이고, 형식이 깨진 입력은 예외 없이 `deny`로 응답합니다.
+
+0~5시, 20건, 600초 기준은 공식 계약이 정하지 않은 값이며 제공 연습 요청(`scripts/fixture-7.mjs`)에 맞춘 가정입니다.
+
+로컬 가상 요청 확인은 `npm run decider:test`와 `npm run fixture:7`입니다. 최근 결과는 모두 통과(정상 `allow`, 복합 이상 `step_up`)이며, 이는 로컬 연습이지 심판 판정이 아닙니다. 실제 재로그인 전 자료 차단과 새 로그인 뒤 재판정은 구현하거나 시험하지 않았습니다(미실행).
+
+7단계 기록 시 `aleph.config.json`의 `step`은 `7`입니다.

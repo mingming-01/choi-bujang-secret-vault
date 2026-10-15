@@ -137,7 +137,97 @@ async function runLocalDeviceRegistrationChecks() {
 
 }
 
+async function runLocalStep7Checks() {
+  // 6단계 기기 등록 점검을 그대로 유지하고 7단계 가상 접속 점검을 더합니다.
+  const results = await runLocalDeviceRegistrationChecks();
+  const { decide, RULE_IDS } = await import('./decider.mjs');
+  if (!Array.isArray(RULE_IDS) || !RULE_IDS.includes('step_up_required')) {
+    throw new Error('7단계 로컬 점검에 필요한 step_up_required 판정 규칙을 확인할 수 없습니다.');
+  }
+  const { randomUUID } = await import('node:crypto');
+  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+  const { normal, suspicious } = fixtureRequests();
+  const variant = (base, patch) => ({ ...base, requestId: randomUUID(), ...patch });
+
+  const checks = [
+    {
+      attackId: 'normal_access_allow',
+      expected: '평소와 같은 로컬 가상 접속은 allow',
+      request: normal, decision: 'allow', reasonCode: 'approved',
+    },
+    {
+      attackId: 'composite_anomaly_step_up',
+      expected: '평소와 다른 시각·네트워크와 다량 읽기가 함께인 로컬 가상 접속은 step_up 및 step_up_required',
+      request: suspicious, decision: 'step_up', reasonCode: 'step_up_required',
+    },
+    {
+      attackId: 'composite_anomaly_rechecked_allow',
+      expected: '다시 확인을 마친 복합 이상 로컬 가상 접속은 allow',
+      request: variant(suspicious, { stepUp: { verified: true, authAgeSeconds: 60 } }),
+      decision: 'allow', reasonCode: 'approved',
+    },
+    {
+      attackId: 'region_only_change_allow',
+      expected: '지역만 달라진 로컬 가상 접속은 영구 차단하지 않고 allow',
+      request: variant(normal, { signals: { ...normal.signals, region: 'foreign' } }),
+      decision: 'allow', reasonCode: 'approved',
+    },
+    {
+      attackId: 'partial_anomaly_allow',
+      expected: '시각·네트워크·다량 읽기 중 둘만 있는 로컬 가상 접속은 allow',
+      request: variant(suspicious, { recentEvents: [] }),
+      decision: 'allow', reasonCode: 'approved',
+    },
+    {
+      attackId: 'unverified_signal_source_not_trusted',
+      expected: '출처가 judge_fixture가 아닌 신호는 근거로 쓰지 않아 step_up이 되지 않음',
+      request: variant(suspicious, { signals: { ...suspicious.signals, source: 'none' } }),
+      decision: 'allow', reasonCode: 'approved',
+    },
+    {
+      attackId: 'unregistered_device_with_anomaly_deny',
+      expected: '미등록 기기의 복합 이상 로컬 가상 접속은 deny 및 device_not_registered',
+      request: variant(suspicious, { deviceRegistered: false }),
+      decision: 'deny', reasonCode: 'device_not_registered',
+    },
+  ];
+
+  for (const check of checks) {
+    const response = await decide(check.request);
+    const validShape = response && typeof response === 'object'
+      && Object.keys(response).sort().join(',') === 'decision,reasonCode,requestId,ruleIds,schema'
+      && response.requestId === check.request.requestId
+      && Array.isArray(response.ruleIds) && response.ruleIds.length > 0
+      && response.ruleIds.every(id => RULE_IDS.includes(id));
+    const passed = validShape && response.decision === check.decision
+      && response.reasonCode === check.reasonCode;
+    if (!passed) {
+      throw new Error('7단계 점검 실패: ' + check.attackId
+        + ' (decision=' + String(response?.decision)
+        + ', reasonCode=' + String(response?.reasonCode) + ')');
+    }
+    results.push({
+      attackId: check.attackId,
+      expected: check.expected,
+      observed: '로컬 가상 요청 검증: 기대 결과와 일치 (decision=' + response.decision
+        + ', reasonCode=' + response.reasonCode + ')',
+    });
+  }
+
+  results.push({
+    attackId: 'relogin_gate_not_run',
+    expected: '다시 로그인 전 자료 차단과 새 로그인 뒤 재판정은 제공 엔진이 연결된 환경에서만 시험할 수 있음',
+    observed: '미실행: 이번 로컬 점검은 판정기 응답만 확인했고 실제 자료 차단과 재로그인 뒤 재판정은 시험하지 않았음',
+  });
+
+  return results;
+}
+
 export async function runAttackChecks(config) {
+  if (config.step === 7) {
+    return runLocalStep7Checks();
+  }
+
   if (config.step === 6) {
     return runLocalDeviceRegistrationChecks();
   }
