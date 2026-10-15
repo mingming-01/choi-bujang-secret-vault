@@ -241,7 +241,28 @@ async function runLocalStep8Checks() {
   }));
 }
 
+async function runLocalStep9Checks() {
+  const { detect } = await import('./detect.mjs');
+  const { checkDetection } = await import('../scripts/detect-test.mjs');
+
+  const checks = await checkDetection(detect);
+  const failed = checks.find(item => !item.passed);
+
+  if (failed) {
+    throw new Error(`9단계 비정상 조회 점검 실패: ${failed.name}`);
+  }
+
+  return checks.map((item, index) => ({
+    attackId: `step9_detection_${index + 1}`,
+    expected: `${item.name} 조건에서 탐지 결과가 기대값과 일치해야 함`,
+    observed: `로컬 가상 사건 점검 통과: ${item.name}`,
+  }));
+}
+
 export async function runAttackChecks(config) {
+  if (config.step === 9) {
+    return runLocalStep9Checks();
+  }
   if (config.step === 7) {
     return runLocalStep7Checks();
   }
