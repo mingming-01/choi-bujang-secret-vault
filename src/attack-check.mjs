@@ -254,6 +254,9 @@ export async function runAttackChecks(config) {
     throw new Error('이 단계의 공격 점검은 src/attack-check.mjs에 구현해 주세요.');
   }
 
+  if (config.step === 8) {
+    return runLocalStep8Checks();
+  }
   const app = getAppUrl(config);
   const results = config.step === 8
     ? await runLocalStep8Checks()
