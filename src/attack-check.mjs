@@ -223,6 +223,24 @@ async function runLocalStep7Checks() {
   return results;
 }
 
+async function runLocalStep8Checks() {
+  const { checkDecider } = await import('../scripts/decider-test.mjs');
+  const { decide, RULE_IDS } = await import('./decider.mjs');
+
+  const checks = await checkDecider({ decide, ruleIds: RULE_IDS });
+  const failed = checks.find(item => !item.passed);
+
+  if (failed) {
+    throw new Error(`8단계 자원 정책 점검 실패: ${failed.name}`);
+  }
+
+  return checks.map((item, index) => ({
+    attackId: `step8_local_${index + 1}`,
+    expected: `${item.name}에 대한 판정이 과제의 허용·거부 조건과 일치해야 함`,
+    observed: `로컬 가상 요청 점검 통과: ${item.name}`,
+  }));
+}
+
 export async function runAttackChecks(config) {
   if (config.step === 7) {
     return runLocalStep7Checks();
@@ -232,12 +250,14 @@ export async function runAttackChecks(config) {
     return runLocalDeviceRegistrationChecks();
   }
 
-  if (config.step !== 4 && config.step !== 5) {
+  if (config.step !== 4 && config.step !== 5 && config.step !== 8) {
     throw new Error('이 단계의 공격 점검은 src/attack-check.mjs에 구현해 주세요.');
   }
 
   const app = getAppUrl(config);
-  const results = [];
+  const results = config.step === 8
+    ? await runLocalStep8Checks()
+    : [];
 
   const options = {
     redirect: 'error',
@@ -379,8 +399,8 @@ export async function runAttackChecks(config) {
 
   const notesUrl = new URL('/api/notes', app);
 
-  if (config.step === 5) {
-    // A가 자기 자료를 서버 API에서 정상적으로 읽을 수 있어야 함
+  // A가 자기 자료를 서버 API에서 정상적으로 읽을 수 있어야 함
+    if (config.step === 5 || config.step === 8) {
     const aCreate = await requestJson(notesUrl, {
       method: 'POST',
       headers: {
