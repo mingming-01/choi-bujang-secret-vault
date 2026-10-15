@@ -99,7 +99,13 @@ export default async function handler(request, response) {
   }
 
   const auth = await authenticatedService(request);
-  if (auth.error) return response.status(auth.status).json({ error: auth.error });
+  if (auth.error) {
+    if (auth.status === 401) {
+      console.warn(`[notes] deny: ${auth.error}`);
+    }
+
+    return response.status(auth.status).json({ error: auth.error });
+  }
   const { supabase: client, user } = auth;
 
   if (request.method === 'GET') {

@@ -2,6 +2,7 @@
 
 이 자료실은 1~3단계의 로그인과 메모 기능을 유지하면서 4단계에서 사용자별 소유권 검사를 추가합니다. 실제 개인정보나 비밀 키를 코드·Git·로그에 넣지 마세요.
 
+--
 ## 1~3단계 보존 사항
 
 - 기존 `public.learning_notes` 테이블과 네 건의 학습용 가상 메모를 보존합니다.
@@ -11,6 +12,7 @@
 - `vercel.json`의 홈페이지 `X-Content-Type-Options: nosniff` 헤더를 유지합니다.
 - Supabase Auth 이메일·비밀번호 로그인/로그아웃, 토큰 검증 및 사용자 메모 CRUD가 있습니다.
 
+--
 ## 4단계: 로그인해도 내 자료만 보이게 하기
 
 `api/notes.js`와 `api/notes/[id].js`는 계속 `src/verify-login.mjs`로 Bearer 토큰을 검증하고, 검증된 학생의 `userId`만 소유자 판정에 사용합니다. URL의 ID는 메모를 식별할 뿐 사용자 ID로 신뢰하지 않습니다. 요청 본문의 `owner_id`는 무시하며, 생성은 서버 검증 사용자 ID로 저장합니다.
@@ -50,6 +52,7 @@ npm run decider:test
 
 6단계 기록 시 `aleph.config.json`의 `step`은 `6`입니다. `npm run bundle`, Git 명령, 실제 ZTNA 정책 적용은 이번 문서·설정 갱신에서 수행하지 않았습니다.
 
+--
 ## 7단계: 평소와 다른 접속은 다시 확인합니다
 
 `src/decider.mjs`는 6단계의 기기 규칙을 유지하면서 규칙 `step_up_required` 하나를 더합니다. 등록 기기의 요청에서 아래 세 가지가 **모두** 있을 때만 `decision: 'step_up'`, `reasonCode: 'step_up_required'`를 반환합니다.
@@ -65,3 +68,34 @@ npm run decider:test
 로컬 가상 요청 확인은 `npm run decider:test`와 `npm run fixture:7`입니다. 최근 결과는 모두 통과(정상 `allow`, 복합 이상 `step_up`)이며, 이는 로컬 연습이지 심판 판정이 아닙니다. 실제 재로그인 전 자료 차단과 새 로그인 뒤 재판정은 구현하거나 시험하지 않았습니다(미실행).
 
 7단계 기록 시 `aleph.config.json`의 `step`은 `7`입니다.
+
+--
+## 8단계: 자료마다 갈 수 있는 구역을 나눕니다
+
+### 자원 정책
+
+- `src/resources.mjs`에서 자원 ID와 경로 모양을 구분합니다.
+- 메모 단건 경로는 GET, PUT, DELETE를 허용하고 메모 전체 목록과 생성 경로는 거부합니다.
+- 반 공지 경로는 GET만 허용하고 POST, PUT, PATCH, DELETE는 거부합니다.
+- 알 수 없는 경로와 `export` 기능 경로는 거부합니다.
+- 판정기는 기존 `device_registered`, `step_up_required` 규칙을 유지하고 `resource_zone_access` 규칙을 추가합니다.
+
+### 자료 API 보호
+
+- 학생 인증을 검증하고 검증된 사용자 ID와 저장된 `owner_id`를 비교합니다.
+- 다른 사용자의 메모는 조회·수정·삭제할 수 없습니다.
+- 인증 실패와 메모 미발견 사유를 간단히 기록합니다.
+- 로그에는 토큰이나 메모 본문을 기록하지 않습니다.
+
+### 검증 명령
+
+- `npm run decider:test`
+- `npm run test:r5`
+
+두 명령은 로컬 테스트이며 공식 심판 통과를 의미하지 않습니다.
+
+### 구현 범위와 한계
+
+- 공식 판정 요청 계약에서 확인된 메모 경로는 `GET /notes/:id`입니다.
+- 반 공지 서비스와 경로는 현재 XDR 자료를 근거로 한 가정이며, 실제 공지 API가 구현되어 있거나 심판 요청과 일치한다고 확인된 것은 아닙니다.
+- 자원 정책의 거부 응답은 기존 `device_not_registered` 사유 코드를 재사용하므로, 자원 거부 원인과 사유 코드의 의미가 완전히 일치하지 않습니다.

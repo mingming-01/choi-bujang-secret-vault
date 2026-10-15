@@ -1,8 +1,12 @@
+import { resourceAccessAllowed } from './resources.mjs';
 // ALEPH SDP 엔진이 확인한 요청만 받는 학생 판정기입니다.
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
 // docs/DECIDER_REQUEST.md 계약에 있는 deviceRegistered, stepUp, recentEvents, signals만 읽습니다.
-export const RULE_IDS = Object.freeze(['device_registered', 'step_up_required']);
-
+export const RULE_IDS = Object.freeze([
+  'device_registered',
+  'step_up_required',
+  'resource_zone_access',
+]);
 // 제공 연습 요청(scripts/fixture-7.mjs)이 쓰는 값 이름입니다.
 //   signals: { source: 'judge_fixture', network: 'usual' | 'unusual', hour: 0~23 }
 //   recentEvents: [{ kind: 'risk_signal', ageSeconds, count }]
@@ -45,6 +49,9 @@ export async function decide(request) {
     requestId = request.requestId;
     if (request.deviceRegistered !== true) {
       return response(requestId, 'deny', 'device_not_registered', ['device_registered']);
+    }
+    if (!resourceAccessAllowed(request)) {
+      return response(requestId, 'deny', 'device_not_registered', ['resource_zone_access']);
     }
     if (!isCompositeAnomaly(request)) {
       return response(requestId, 'allow', 'approved', ['device_registered']);

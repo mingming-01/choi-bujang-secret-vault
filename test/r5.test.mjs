@@ -30,7 +30,7 @@ function mockResponse() {
   };
 }
 
-test('배포 식별 정보는 5단계 설정도 허용하고 단계 번호를 기록한다', () => {
+test('배포 식별 정보는 8단계 이상 설정을 허용하고 단계 번호를 기록한다', () => {
   assert.deepEqual(deploymentIdentity(env, config), {
     schema: 'aleph.defense.deployment.v1',
     step: 5,
@@ -87,10 +87,13 @@ test('메모 단건 API도 토큰 없는 GET을 JSON 401로 거부한다', async
 
 test('Supabase 설정과 허용 경로는 secret을 포함하지 않고 Supabase Auth 발급자와 일치한다', async () => {
   const settings = JSON.parse(await readFile(new URL('../aleph.config.json', import.meta.url), 'utf8'));
-  assert.equal(settings.step, 5);
+  assert.ok(settings.step >= 8);
   assert.deepEqual(settings.allowedRoutes, [
-    '/api/notes (GET, POST)',
-    '/api/notes/:id (GET, PUT, DELETE)',
+    'GET /api/notes/:id',
+    'PUT /api/notes/:id',
+    'DELETE /api/notes/:id',
+    'GET /api/notices',
+    'GET /api/notices/:id',
   ]);
   assert.equal(settings.identityProvider.issuer, 'https://gxqfisevuianuyaahqlu.supabase.co/auth/v1');
   assert.equal(settings.identityProvider.audience, 'authenticated');

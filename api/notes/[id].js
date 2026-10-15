@@ -65,9 +65,12 @@ export default async function handler(request, response) {
   try {
     user = await currentService.verifyLogin(authorization);
   } catch {
+    console.warn('[notes/:id] deny: INVALID_AUTHENTICATION');
     return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
   }
+
   if (!user || user.kind !== 'student') {
+    console.warn('[notes/:id] deny: INVALID_AUTHENTICATION');
     return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
   }
   const client = currentService.supabase;
@@ -85,7 +88,10 @@ export default async function handler(request, response) {
         .eq('owner_id', user.userId)
         .maybeSingle();
       if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
-      if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+      if (!data) {
+        console.warn('[notes/:id] deny: NOTE_NOT_FOUND');
+        return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+      }
       return response.status(200).json({ id: data.id, title: data.title, body: data.content });
     } catch {
       return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
@@ -103,7 +109,10 @@ export default async function handler(request, response) {
         .select('id, title, content')
         .maybeSingle();
       if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
-      if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+      if (!data) {
+        console.warn('[notes/:id] deny: NOTE_NOT_FOUND');
+        return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+      }
       return response.status(200).json({ id: data.id, title: data.title, body: data.content });
     } catch {
       return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
@@ -118,7 +127,10 @@ export default async function handler(request, response) {
       .select('id')
       .maybeSingle();
     if (error) return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
-    if (!data) return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+    if (!data) {
+      console.warn('[notes/:id] deny: NOTE_NOT_FOUND');
+      return response.status(404).json({ error: 'NOTE_NOT_FOUND' });
+    }
     return response.status(200).json({ id: data.id });
   } catch {
     return response.status(502).json({ error: 'NOTES_UNAVAILABLE' });
