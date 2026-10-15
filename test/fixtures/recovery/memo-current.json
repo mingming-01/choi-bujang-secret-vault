@@ -1,0 +1,21 @@
+{
+  "schema": "aleph.training-memo-store.v1",
+  "environment": "fixture-only",
+  "memos": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "ownerId": "fixture-owner-b",
+      "title": "Altered fictional training memo",
+      "body": "Altered content in the local recovery fixture."
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "ownerId": "fixture-owner-a",
+      "title": "Unrelated fictional memo",
+      "body": "This unrelated local fixture record must be preserved."
+    }
+  ],
+  "auditEvents": [
+    { "id": "memo-audit-fixture-1", "event": "memo-change-fixture" }
+  ]
+}

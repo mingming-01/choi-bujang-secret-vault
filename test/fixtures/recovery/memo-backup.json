@@ -1,0 +1,9 @@
+{
+  "schema": "aleph.training-memo-backup.v1",
+  "environment": "fixture-only",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "ownerId": "fixture-owner-b",
+  "title": "Fictional recovery practice memo",
+  "body": "Fictional training memo content for local recovery tests only.",
+  "contentSha256": "64db0d5cf9d3eca69529df51bb023a52f9f7a7c124e54adf63c318f1fd1c43c5"
+}

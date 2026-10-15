@@ -259,7 +259,109 @@ async function runLocalStep9Checks() {
   }));
 }
 
+async function runLocalStep10Checks() {
+  const {
+    loadVerifiedPolicyFixture,
+    loadVerifiedCurrentPolicyFixture,
+    compareFixturePolicies,
+    fixtureReadAllowed,
+    restoreFixturePolicies,
+    loadVerifiedMemoFixture,
+    loadVerifiedMemoCurrentFixture,
+    restoreFixtureMemo,
+  } = await import('./recovery.mjs');
+
+  const results = [];
+
+  const safeSnapshot = await loadVerifiedPolicyFixture();
+  const currentSnapshot = await loadVerifiedCurrentPolicyFixture();
+  const policyIds = [
+    'note.read.owner',
+    'note.read.cross-user',
+  ];
+
+  const comparison = compareFixturePolicies({
+    safeSnapshot,
+    currentSnapshot,
+    policyIds,
+  });
+
+  const restored = restoreFixturePolicies({
+    safeSnapshot,
+    currentSnapshot,
+    policyIds,
+    confirmation: comparison.confirmation,
+  });
+
+  const ownerAllowed = fixtureReadAllowed({
+    policySnapshot: restored,
+    requesterId: 'fixture-owner-b',
+    ownerId: 'fixture-owner-b',
+  });
+
+  const crossUserDenied = !fixtureReadAllowed({
+    policySnapshot: restored,
+    requesterId: 'another-user',
+    ownerId: 'fixture-owner-b',
+  });
+
+  if (!ownerAllowed || !crossUserDenied) {
+    throw new Error('10단계 정책 복구 접근 점검 실패');
+  }
+
+  results.push({
+    attackId: 'step10_policy_restore_access',
+    expected: '소유자 접근은 허용하고 다른 사용자의 접근은 거부',
+    observed: '로컬 훈련용 정책 fixture에서 복구 후 접근 판정 확인',
+  });
+
+  const backup = await loadVerifiedMemoFixture();
+  const currentStore = await loadVerifiedMemoCurrentFixture();
+  const target = {
+    id: backup.id,
+    ownerId: backup.ownerId,
+    contentSha256: backup.contentSha256,
+  };
+
+  const restoredStore = restoreFixtureMemo({
+    backup,
+    currentStore,
+    target,
+    confirmation:
+      `RESTORE ${backup.id} ${backup.ownerId} ${backup.contentSha256}`,
+  });
+
+  const restoredMemo = restoredStore.memos.find(
+    memo => memo.id === backup.id,
+  );
+
+  if (!restoredMemo
+      || restoredMemo.ownerId !== backup.ownerId
+      || restoredMemo.body !== backup.body
+      || JSON.stringify(restoredStore.auditEvents)
+        !== JSON.stringify(currentStore.auditEvents)) {
+    throw new Error('10단계 메모 복구 보존 점검 실패');
+  }
+
+  results.push({
+    attackId: 'step10_memo_restore_preservation',
+    expected: '지정한 메모를 복구하고 기존 감사 기록을 보존',
+    observed: '로컬 훈련용 메모 fixture에서 복구 및 감사 기록 보존 확인',
+  });
+
+  results.push({
+    attackId: 'step10_production_restore_not_verified',
+    expected: '실제 Supabase 정책과 메모 복구 여부를 별도로 확인',
+    observed: '미검증: 로컬 훈련용 fixture만 점검했으며 실제 Supabase 데이터는 변경하지 않음',
+  });
+
+  return results;
+}
+
 export async function runAttackChecks(config) {
+  if (config.step === 10) {
+    return runLocalStep10Checks();
+  }
   if (config.step === 9) {
     return runLocalStep9Checks();
   }

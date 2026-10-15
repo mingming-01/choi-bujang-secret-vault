@@ -1,0 +1,13 @@
+{
+  "schema": "aleph.training-policy.v1",
+  "environment": "fixture-only",
+  "revision": "compromised-training-fixture-v1",
+  "policies": [
+    { "id": "note.read.owner", "effect": "allow", "condition": "owner_id_matches" },
+    { "id": "note.read.cross-user", "effect": "allow", "condition": "any_authenticated_user" },
+    { "id": "notice.read.public", "effect": "allow", "condition": "published_notice" }
+  ],
+  "auditEvents": [
+    { "id": "audit-fixture-1", "event": "policy-change-fixture", "preserve": true }
+  ]
+}
