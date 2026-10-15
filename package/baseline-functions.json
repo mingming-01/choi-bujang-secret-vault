@@ -7,6 +7,7 @@
     "api/auth.js",
     "api/notes.js",
     "api/notes/[id].js",
+    "api/restore.js",
     "api/threat-intel.js"
   ]
 }

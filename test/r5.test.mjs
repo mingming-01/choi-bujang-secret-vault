@@ -94,6 +94,7 @@ test('Supabase 설정과 허용 경로는 secret을 포함하지 않고 Supabase
     'DELETE /api/notes/:id',
     'GET /api/notices',
     'GET /api/notices/:id',
+    'POST /api/restore',
   ]);
   assert.equal(settings.identityProvider.issuer, 'https://gxqfisevuianuyaahqlu.supabase.co/auth/v1');
   assert.equal(settings.identityProvider.audience, 'authenticated');

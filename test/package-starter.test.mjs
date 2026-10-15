@@ -19,6 +19,7 @@ test('패키징 함수 기준표는 시작 틀의 실제 API와 일치한다', a
     'api/auth.js',
     'api/notes.js',
     'api/notes/[id].js',
+    'api/restore.js',
     'api/threat-intel.js',
   ]);
   assert.deepEqual(actual, [...baseline.functions, ...baseline.allowedNew].sort());
