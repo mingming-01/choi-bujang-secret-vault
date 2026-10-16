@@ -6,67 +6,67 @@
       "alertId": "wi-01",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: repeated distinct alert IDs for the same validated source and pattern"
+      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-02",
-      "action": "alert",
-      "confidence": 0.68,
-      "reason": "script-tag: clear injection pattern matched; repeated-source evidence required"
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "script-tag: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-03",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal: repeated distinct alert IDs for the same validated source and pattern"
+      "reason": "path-traversal: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-04",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: repeated distinct alert IDs for the same validated source and pattern"
+      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-05",
-      "action": "alert",
-      "confidence": 0.68,
-      "reason": "ambiguous-pattern-overlap: sql-injection, script-tag; repeated-source evidence required"
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "sql-injection+script-tag: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-06",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: incomplete or uncertain request pattern matched"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-07",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal: repeated distinct alert IDs for the same validated source and pattern"
+      "reason": "path-traversal: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-08",
-      "action": "alert",
-      "confidence": 0.68,
-      "reason": "sql-injection: clear injection pattern matched; repeated-source evidence required"
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-09",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: incomplete or uncertain request pattern matched"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-10",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-11",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-12",
@@ -78,13 +78,13 @@
       "alertId": "wi-13",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-14",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-15",
@@ -100,69 +100,69 @@
     },
     {
       "alertId": "wi-17",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: incomplete or uncertain request pattern matched"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-18",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-19",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-20",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-21",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-22",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-23",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-24",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-25",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     },
     {
       "alertId": "wi-26",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: no configured injection pattern matched"
+      "reason": "normal-or-unsupported: no task injection signal in the request"
     }
   ],
   "counts": {
-    "block": 4,
-    "alert": 9,
-    "record": 13
+    "block": 7,
+    "alert": 3,
+    "record": 16
   },
   "response": {
     "candidateRules": [
@@ -172,6 +172,13 @@
         "expiresAt": "2026-09-27T00:43:01.000Z",
         "sourceAlert": "wi-01",
         "patternId": "sql-injection"
+      },
+      {
+        "action": "deny",
+        "source": "203.0.113.10",
+        "expiresAt": "2026-09-27T00:43:20.000Z",
+        "sourceAlert": "wi-02",
+        "patternId": "script-tag"
       },
       {
         "action": "deny",
@@ -193,9 +200,16 @@
         "expiresAt": "2026-09-27T04:34:19.000Z",
         "sourceAlert": "wi-07",
         "patternId": "path-traversal"
+      },
+      {
+        "action": "deny",
+        "source": "203.0.113.22",
+        "expiresAt": "2026-09-27T05:56:02.000Z",
+        "sourceAlert": "wi-08",
+        "patternId": "sql-injection"
       }
     ],
-    "blockedCandidates": 4,
+    "blockedCandidates": 6,
     "skippedInvalidTimestamp": 0,
     "skippedInvalidSource": 0,
     "appliedToZtna": true

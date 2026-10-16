@@ -173,8 +173,19 @@ function hasValidCorrelation(alert, patternName, source) {
   return ids.some((id) => id !== alert.id);
 }
 
-// Pure decision: request evidence determines severity; only runner-supplied,
-// validated distinct-event correlation can elevate a single pattern to block.
+function hasRepeatedCountEvidence(alert, source) {
+  if (!source) return false;
+  const raw = alert?.data?.count;
+  const count = typeof raw === 'number'
+    ? raw
+    : typeof raw === 'string' && /^\d+$/.test(raw.trim())
+      ? Number(raw.trim())
+      : NaN;
+  return Number.isSafeInteger(count) && count >= 2;
+}
+
+// Request signals decide the severity: SQL syntax, script tag, repeated ../ are clear;
+// partial forms are ambiguous; a lone quote or command separator is not a task signal.
 export function decide(alert) {
   const settings = getSettings(alert);
   const requestText = getRequestText(alert, settings);
@@ -182,23 +193,19 @@ export function decide(alert) {
   const patterns = matchingIds(requestText, settings.patterns);
 
   if (patterns.length === 0) {
-    if (matchingIds(requestText, settings.ambiguousPatterns).length > 0) {
+    const ambiguous = matchingIds(requestText, settings.ambiguousPatterns)
+      .filter((id) => id !== 'isolated-quote' && id !== 'command-separator');
+    if (ambiguous.length > 0) {
       return result('alert', 0.6, 'ambiguous-request-signal: incomplete or uncertain request pattern matched');
     }
-    return result('record', 0.08, 'normal-or-unsupported: no configured injection pattern matched');
+    return result('record', 0.08, 'normal-or-unsupported: no task injection signal in the request');
   }
 
-  if (patterns.length > 1) {
-    return result('alert', 0.68, 'ambiguous-pattern-overlap: ' + patterns.join(', ') + '; repeated-source evidence required');
+  const repeated = hasRepeatedCountEvidence(alert, source)
+    || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
+  if (repeated) {
+    return result('block', 0.92, patterns.join('+') + ': clear injection pattern repeated from the same valid source');
   }
 
-  const correlatedPattern = hasValidCorrelation(alert, patterns[0], source)
-    ? patterns[0]
-    : '';
-
-  if (correlatedPattern) {
-    return result('block', 0.92, correlatedPattern + ': repeated distinct alert IDs for the same validated source and pattern');
-  }
-
-  return result('alert', 0.68, patterns[0] + ': clear injection pattern matched; repeated-source evidence required');
+  return result('alert', 0.68, patterns.join('+') + ': clear injection pattern matched without repeat evidence');
 }
