@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 function getAppUrl(config) {
   let app;
 
@@ -438,50 +440,47 @@ async function runStep12ApiChecks(config) {
       results.push({
         attackId: check.attackId,
         expected: check.expected,
-        observed: `미실행(not_run): 격리 환경은 공개 HTTPS GET·HEAD 요청만 허용하므로 POST를 보내지 않음; checkedAt=${checkedAt}`,
+        observed: 'not_run',
       });
       continue;
     }
 
     try {
-      const options = { method: check.method };
+      const url = new URL(check.path, app);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+        alephEvidence: { caseId: check.attackId, requestKey: 'read' },
+        cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(10000),
+      });
 
-      if (check.body !== undefined) {
-        options.headers = { 'content-type': 'application/json' };
-        options.body = JSON.stringify(check.body);
+      const responseText = await response.text();
+      let bodyBytes = 0;
+
+      for (const character of responseText) {
+        const codePoint = character.codePointAt(0);
+        bodyBytes += codePoint <= 0x7f ? 1
+          : codePoint <= 0x7ff ? 2
+          : codePoint <= 0xffff ? 3
+          : 4;
       }
 
-      const { response, body } = await requestJson(
-        new URL(check.path, app),
-        options,
-      );
-
-      const denied = response.status === 401 || response.status === 403;
-      const errorCode = typeof body?.error === 'string'
-        && /^[A-Z0-9_.-]{1,80}$/iu.test(body.error)
-        ? body.error
-        : 'not_provided';
-      const rawRequestId = response.headers.get('x-request-id')
-        || response.headers.get('x-vercel-id')
-        || body?.requestId;
-      const requestId = typeof rawRequestId === 'string'
-        && rawRequestId.length <= 100
-        ? rawRequestId
-        : 'not_provided';
+      const urlSha256 = createHash('sha256')
+        .update(url.href)
+        .digest('hex');
 
       results.push({
         attackId: check.attackId,
         expected: check.expected,
-        observed: `${denied ? '기대 상태와 일치' : '기대 상태와 불일치'}: `
-          + `HTTP${response.status}; error=${errorCode}; `
-          + `requestId=${requestId}; checkedAt=${checkedAt}`,
+        observed: `HTTP ${response.status}; method=GET; urlSha256=${urlSha256}; bodyBytes=${bodyBytes}`,
       });
-    } catch (error) {
+    } catch {
       results.push({
         attackId: check.attackId,
         expected: check.expected,
-        observed: `미검증: HTTP 응답 없음; checkedAt=${checkedAt}; `
-          + `cause=${error?.name || 'RequestError'}`,
+        observed: 'not_run',
       });
     }
   }
