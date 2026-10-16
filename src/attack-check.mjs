@@ -418,10 +418,14 @@ async function runStep12ApiChecks(config) {
     },
     {
       attackId: 'step12_unauth_restore',
-      expected: '인증 없는 POST /api/restore는 401 또는 403으로 거부',
+      expected: '유효한 복구 미리보기 본문이어도 인증 없는 POST /api/restore는 401 또는 403으로 거부',
       method: 'POST',
       path: '/api/restore',
-      body: {},
+      body: {
+        id: '1',
+        ownerId: '11111111-1111-4111-8111-111111111111',
+        contentSha256: 'a'.repeat(64),
+      },
     },
   ];
 
