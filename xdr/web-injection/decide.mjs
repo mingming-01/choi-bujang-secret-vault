@@ -248,10 +248,8 @@ export function decide(alert) {
   const source = getValidSource(alert);
   const patterns = matchingIds(requestValues, settings.patterns);
   const ambiguousPatterns = matchingIds(requestValues, settings.ambiguousPatterns);
-  const relevantAmbiguousPatterns = ambiguousPatterns.filter((id) => (
-    id !== 'isolated-quote'
-    && id !== 'command-separator'
-    && !(id === 'single-traversal-segment' && patterns.includes('path-traversal'))
+  const relevantAmbiguousPatterns = ambiguousPatterns.filter((id) => !(
+    id === 'single-traversal-segment' && patterns.includes('path-traversal')
   ));
 
   if (patterns.length > 1) {
