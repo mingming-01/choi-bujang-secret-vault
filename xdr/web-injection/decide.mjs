@@ -154,6 +154,19 @@ function isValidAlertId(value) {
     && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
+function hasRepeatedCountEvidence(alert, source) {
+  if (!source) return false;
+
+  const rawCount = alert?.data?.count;
+  const count = typeof rawCount === 'number'
+    ? rawCount
+    : typeof rawCount === 'string' && /^\d+$/.test(rawCount.trim())
+      ? Number(rawCount.trim())
+      : NaN;
+
+  return Number.isSafeInteger(count) && count >= 2;
+}
+
 function hasValidCorrelation(alert, patternName, source) {
   const evidence = alert?.correlationEvidence;
 
@@ -206,7 +219,9 @@ export function decide(alert) {
   }
 
   if (patterns.length === 0) {
-    if (matchingIds(requestText, settings.ambiguousPatterns).length > 0) {
+    const ambiguousPatterns = matchingIds(requestText, settings.ambiguousPatterns)
+      .filter((id) => id !== 'isolated-quote' && id !== 'command-separator');
+    if (ambiguousPatterns.length > 0) {
       return result('alert', 0.6, 'ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류');
     }
     return result('record', 0.08, 'normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
@@ -214,12 +229,11 @@ export function decide(alert) {
 
   const patternName = patterns[0];
 
-  if (hasValidCorrelation(alert, patternName, source)) {
-    return result(
-      'block',
-      0.92,
-      `${patternName}: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨`
-    );
+  if (hasValidCorrelation(alert, patternName, source) || hasRepeatedCountEvidence(alert, source)) {
+    const repeatedEvidence = hasValidCorrelation(alert, patternName, source)
+      ? '같은 출처의 서로 다른 경보 ID에서 반복 확인'
+      : `유효한 출처와 명확한 주입 패턴, data.count=${alert?.data?.count} 확인`;
+    return result('block', 0.92, `${patternName}: ${repeatedEvidence}`);
   }
 
   return result('alert', 0.68, `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`);
