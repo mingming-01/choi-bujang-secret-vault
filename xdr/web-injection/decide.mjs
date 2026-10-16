@@ -248,13 +248,23 @@ export function decide(alert) {
   const source = getValidSource(alert);
   const patterns = matchingIds(requestValues, settings.patterns);
   const ambiguousPatterns = matchingIds(requestValues, settings.ambiguousPatterns);
-  const relevantAmbiguousPatterns = ambiguousPatterns.filter((id) => !(
-    id === 'single-traversal-segment' && patterns.includes('path-traversal')
+  const relevantAmbiguousPatterns = ambiguousPatterns.filter((id) => (
+    id !== 'isolated-quote'
+    && id !== 'command-separator'
+    && !(id === 'single-traversal-segment' && patterns.includes('path-traversal'))
   ));
 
   if (patterns.length > 1) {
     const confidence = 0.68;
     return result(actionForConfidence(confidence), confidence, 'ambiguous-pattern-overlap: 여러 공격 유형이 요청 인자에서 겹침');
+  }
+
+  if (patterns.length === 1) {
+    const patternId = patterns[0];
+    if (hasValidCorrelation(alert, patternId, source)) {
+      const confidence = 0.92;
+      return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인`);
+    }
   }
 
   if (relevantAmbiguousPatterns.length > 0) {
@@ -267,12 +277,6 @@ export function decide(alert) {
     return result(actionForConfidence(confidence), confidence, 'normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
   }
 
-  const patternId = patterns[0];
-  if (hasValidCorrelation(alert, patternId, source)) {
-    const confidence = 0.92;
-    return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인`);
-  }
-
   const confidence = 0.68;
-  return result(actionForConfidence(confidence), confidence, `${patternId}: 명확한 공격 패턴은 확인됐지만 반복 근거가 부족함`);
+  return result(actionForConfidence(confidence), confidence, `${patterns[0]}: 명확한 공격 패턴은 확인됐지만 반복 근거가 부족함`);
 }
