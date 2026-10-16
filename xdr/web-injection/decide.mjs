@@ -184,28 +184,29 @@ function hasRepeatedCountEvidence(alert, source) {
   return Number.isSafeInteger(count) && count >= 2;
 }
 
-// Request signals decide the severity: SQL syntax, script tag, repeated ../ are clear;
-// partial forms are ambiguous; a lone quote or command separator is not a task signal.
+function ruleLevel(alert) {
+  const level = alert?.rule?.level;
+  return Number.isFinite(level) ? level : 0;
+}
+
 export function decide(alert) {
   const settings = getSettings(alert);
   const requestText = getRequestText(alert, settings);
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
+  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
 
-  if (patterns.length === 0) {
-    const ambiguous = matchingIds(requestText, settings.ambiguousPatterns)
-      .filter((id) => id !== 'isolated-quote' && id !== 'command-separator');
-    if (ambiguous.length > 0) {
-      return result('alert', 0.6, 'ambiguous-request-signal: incomplete or uncertain request pattern matched');
-    }
-    return result('record', 0.08, 'normal-or-unsupported: no task injection signal in the request');
+  if (patterns.length > 0 || ambiguous.length > 0) {
+    const repeated = hasRepeatedCountEvidence(alert, source)
+      || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
+    const names = [...patterns, ...ambiguous].join('+');
+    if (repeated) return result('block', 0.92, names + ': injection signal repeated from the same valid source');
+    if (patterns.length > 0) return result('alert', 0.68, names + ': clear pattern without repeat evidence');
+    return result('alert', 0.6, names + ': incomplete or uncertain request signal');
   }
 
-  const repeated = hasRepeatedCountEvidence(alert, source)
-    || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
-  if (repeated) {
-    return result('block', 0.92, patterns.join('+') + ': clear injection pattern repeated from the same valid source');
+  if (ruleLevel(alert) >= 5) {
+    return result('alert', 0.55, 'suspicious-severity: no request signal but elevated rule level');
   }
-
-  return result('alert', 0.68, patterns.join('+') + ': clear injection pattern matched without repeat evidence');
+  return result('record', 0.08, 'normal-or-unsupported: no injection signal');
 }
