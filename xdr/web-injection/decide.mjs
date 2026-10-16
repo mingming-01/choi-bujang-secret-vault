@@ -7,7 +7,6 @@ const DEFAULT_PATTERNS = [
 const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'partial-sql', regex: /\bunion\s+(?:all\s+)?$|\bselect\s+(?:\*|[\w`"']+(?:\s*,\s*[\w`"']+)*)\s*$/i },
   { id: 'partial-script-tag', regex: /<\s*\/?\s*script\b(?![^>]*>)/i },
-  { id: 'single-traversal-segment', regex: /(?:\.\.[/\\])/i },
 ];
 
 function compileDefinitions(definitions) {
@@ -40,8 +39,7 @@ function getSettings(alert) {
       ? Math.max(0, Math.min(config.decodePasses, 4))
       : 2,
     patterns: compileDefinitions(config.patterns),
-    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns)
-      .filter(({ id }) => id !== 'isolated-quote' && id !== 'command-separator'),
+    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns).filter(({ id }) => !['isolated-quote', 'command-separator', 'single-traversal-segment'].includes(id)),
   };
 }
 

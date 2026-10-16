@@ -66,17 +66,15 @@ try {
   assert.equal(actualById.get('normal')?.action, 'record', 'normal event remains record');
   assert.equal(actualById.get('high-risk-metadata-only')?.action, 'record', 'metadata alone does not create a request signal');
   for (const id of [
-    'ambiguous-partial-sql',
-    'ambiguous-bare-script',
-    'ambiguous-single-traversal'
+    'ambiguous-partial-sql', 'ambiguous-bare-script'
   ]) {
     assert.equal(actualById.get(id)?.action, 'alert', `${id} is a request-level ambiguous signal`);
   }
 
-  for (const id of ['ambiguous-command-separator', 'ambiguous-isolated-quote']) {
+  for (const id of ['ambiguous-single-traversal', 'ambiguous-command-separator', 'ambiguous-isolated-quote']) {
     assert.equal(actualById.get(id)?.action, 'record', `${id} alone is insufficient evidence`);
   }
-  assert.deepEqual(result.counts, { block: 5, alert: 9, record: 8 });
+  assert.deepEqual(result.counts, { block: 5, alert: 8, record: 9 });
   assert.equal(result.response?.candidateRules.length, 0, 'missing timestamps prevent response candidates without changing decisions');
   assert.equal(result.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA when no valid response candidates exist');
   const responderRoot = join(temporaryRoot, 'responder-check');
