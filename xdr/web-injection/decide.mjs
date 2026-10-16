@@ -196,13 +196,32 @@ export function decide(alert) {
   const patterns = matchingIds(requestText, settings.patterns);
   const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
 
-  if (patterns.length > 0) {
+    if (patterns.length > 1) {
+    return result(
+      'alert',
+      0.68,
+      'ambiguous-pattern-overlap: ' + patterns.join('+') +
+        '; overlapping patterns require review',
+    );
+  }
+
+  if (patterns.length === 1) {
     const repeated = hasRepeatedCountEvidence(alert, source)
-      || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
+      || hasValidCorrelation(alert, patterns[0], source);
+
     if (repeated) {
-      return result('block', 0.92, patterns.join('+') + ': clear injection pattern repeated from the same valid source');
+      return result(
+        'block',
+        0.92,
+        patterns[0] + ': clear injection pattern repeated from the same valid source',
+      );
     }
-    return result('alert', 0.68, patterns.join('+') + ': clear pattern without repeat evidence');
+
+    return result(
+      'alert',
+      0.68,
+      patterns[0] + ': clear pattern without repeat evidence',
+    );
   }
 
   if (ambiguous.length > 0) {

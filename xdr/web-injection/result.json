@@ -28,9 +28,9 @@
     },
     {
       "alertId": "wi-05",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "sql-injection+script-tag: clear injection pattern repeated from the same valid source"
+      "action": "alert",
+      "confidence": 0.68,
+      "reason": "ambiguous-pattern-overlap: sql-injection+script-tag; overlapping patterns require review"
     },
     {
       "alertId": "wi-06",
@@ -160,8 +160,8 @@
     }
   ],
   "counts": {
-    "block": 7,
-    "alert": 10,
+    "block": 6,
+    "alert": 11,
     "record": 9
   },
   "response": {
