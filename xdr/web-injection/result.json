@@ -34,9 +34,9 @@
     },
     {
       "alertId": "wi-06",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-07",
@@ -52,9 +52,9 @@
     },
     {
       "alertId": "wi-09",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-10",
@@ -100,9 +100,9 @@
     },
     {
       "alertId": "wi-17",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-18",
@@ -161,8 +161,8 @@
   ],
   "counts": {
     "block": 5,
-    "alert": 8,
-    "record": 13
+    "alert": 5,
+    "record": 16
   },
   "response": {
     "candidateRules": [
