@@ -22,7 +22,7 @@ function canonical(value) {
   return JSON.stringify(value);
 }
 
-function getRuntime() {
+export function getRuntime() {
   if (runtime) return runtime;
   const supabaseUrl = process.env.SUPABASE_URL;
   const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -106,7 +106,7 @@ function validateBackup(backup) {
   return backup;
 }
 
-async function loadVerifiedBackup(currentRuntime) {
+export async function loadVerifiedBackup(currentRuntime) {
   const backupUrlValue = process.env.RESTORE_BACKUP_URL;
   const expectedSha256 = process.env.RESTORE_BACKUP_SHA256;
   if (typeof backupUrlValue !== 'string' || !backupUrlValue || !SHA256.test(expectedSha256 ?? '')) {

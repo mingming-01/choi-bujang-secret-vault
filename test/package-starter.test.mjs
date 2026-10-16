@@ -22,7 +22,15 @@ test('패키징 함수 기준표는 시작 틀의 실제 API와 일치한다', a
     'api/restore.js',
     'api/threat-intel.js',
   ]);
-  assert.deepEqual(actual, [...baseline.functions, ...baseline.allowedNew].sort());
+  assert.deepEqual(baseline.studentExtensions, [
+  'api/operations.js',
+  'api/war-room.js',
+]);
+assert.deepEqual(actual, [
+  ...baseline.functions,
+  ...baseline.allowedNew,
+  ...baseline.studentExtensions,
+].sort());
 });
 
 test('미구현 서버 뼈대는 성공이나 로그인 통과로 가장하지 않는다', async () => {

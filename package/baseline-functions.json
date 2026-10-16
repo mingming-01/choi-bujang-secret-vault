@@ -9,5 +9,9 @@
     "api/notes/[id].js",
     "api/restore.js",
     "api/threat-intel.js"
+  ],
+  "studentExtensions": [
+    "api/operations.js",
+    "api/war-room.js"
   ]
 }

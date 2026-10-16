@@ -31,6 +31,18 @@
     strong { display: block; font-size: 18px; margin-bottom: 5px; }
     li span { color: #bfd0e5; white-space: pre-wrap; }
     .sample { border-color: #436c70; }
+    .war-room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .war-room-card { min-width: 0; padding: 14px; border: 1px solid #51667c; border-radius: 12px; background: #101a28; }
+    .war-room-card h3 { margin: 0 0 8px; font-size: 16px; }
+    .war-room-card p { margin: 6px 0; font-size: 14px; overflow-wrap: anywhere; }
+    .war-room-card ul { list-style: disc; display: grid; gap: 4px; margin: 8px 0 0; padding-left: 18px; }
+    .war-room-evidence { margin-top: 18px; }
+    .war-room-evidence .table-wrap { width: 100%; overflow-x: auto; }
+    .war-room-evidence table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 850px; }
+    .war-room-evidence th, .war-room-evidence td { padding: 9px; border: 1px solid #51667c; text-align: left; vertical-align: top; }
+    .war-room-evidence th { background: #25394e; color: #ecf4ff; }
+    .war-room-evidence td { overflow-wrap: anywhere; }
+    .evidence-result { font-weight: 700; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -72,6 +84,62 @@
       <p id="auth-message" role="status" aria-live="polite"></p>
     </section>
 
+    <section id="war-room" class="panel" hidden aria-labelledby="war-room-heading">
+      <h2 id="war-room-heading">탈환 작전실</h2>
+      <p id="war-room-status" class="status" role="status" aria-live="polite">로그인하면 서버 요약을 조회합니다.</p>
+      <div class="war-room-grid">
+        <article class="war-room-card">
+          <h3>판정기 규칙</h3>
+          <p id="war-room-rule-summary">미조회</p>
+          <ul id="war-room-rule-list"></ul>
+        </article>
+        <article class="war-room-card">
+          <h3>탐지 사건</h3>
+          <p id="war-room-detection-summary">미조회</p>
+          <p id="war-room-detection-detail">실제 사건 API 응답을 확인하기 전에는 건수를 표시하지 않습니다.</p>
+        </article>
+        <article class="war-room-card">
+          <h3>회수 상태</h3>
+          <p id="war-room-revocation-summary">미조회</p>
+          <p id="war-room-revocation-detail">탐지 제안과 실제 회수 실행을 구분합니다.</p>
+        </article>
+        <article class="war-room-card">
+          <h3>복구 버전</h3>
+          <p id="war-room-recovery-summary">미조회</p>
+          <p id="war-room-recovery-detail">검증된 백업 메타데이터만 표시합니다.</p>
+        </article>
+        <article class="war-room-card">
+          <h3>기기 상태</h3>
+          <p id="war-room-device-summary">미조회</p>
+          <p id="war-room-device-detail">기기 이름과 식별자는 표시하지 않습니다.</p>
+        </article>
+        <article class="war-room-card">
+          <h3>가린 서버 기록</h3>
+          <p id="war-room-record-summary">미조회</p>
+          <p id="war-room-record-detail">조회할 수 없는 기록을 0건으로 표시하지 않습니다.</p>
+        </article>
+      </div>
+      <div class="actions">
+        <button id="war-room-refresh" class="secondary" type="button">실제 상태 새로고침</button>
+      </div>
+      <p>화면에는 가상 메모 본문, 메모 제목, 소유자 ID, 기기 이름을 표시하지 않습니다. 조회 시각과 요청 ID는 서버 응답에서 가져옵니다.</p>
+      <section id="war-room-evidence" class="war-room-evidence" aria-labelledby="war-room-evidence-heading">
+        <h3 id="war-room-evidence-heading">실제 API 점검 결과</h3>
+        <p>아래 실행 버튼은 읽기 전용 API 요청 세 건만 실제로 보냅니다. 응답 상태와 오류 코드만 기록하며 메모 본문·제목·토큰은 기록하지 않습니다. 서버 요청 ID가 없으면 클라이언트 상관 ID로 표시합니다.</p>
+        <p>이 결과표는 1~11단계의 41종 총공세 전체를 대신하지 않습니다. 실행하지 않은 시험은 미실행이며 통과로 계산하지 않습니다.</p>
+        <div class="actions">
+          <button id="war-room-run-api-checks" type="button">안전한 API 점검 3개 실행</button>
+          <button id="war-room-export-api-checks" class="secondary" type="button" disabled>결과 JSON 내보내기</button>
+        </div>
+        <p id="war-room-api-checks-status" class="status" role="status" aria-live="polite">아직 실제 API 점검을 실행하지 않았습니다.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>점검</th><th>요청</th><th>기대 결과</th><th>실제 API 결과</th><th>요청 ID</th><th>확인 시각</th><th>판정</th></tr></thead>
+            <tbody id="war-room-api-checks-rows"><tr><td colspan="7">미실행 · 아직 실제 요청 결과가 없습니다.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
     <section id="workspace" hidden>
       <div class="notice">서버에서 로그인과 메모 소유권을 확인합니다. 사용자 메모와 기존 학습 메모는 로그인한 계정에 연결된 자료만 반환되며, 다른 계정의 메모는 조회·수정·삭제할 수 없습니다. 실제 자료를 저장하지 마세요.</div>
       <section class="panel" aria-labelledby="editor-heading">
@@ -97,6 +165,7 @@
     </section>
   </main>
   <script type="module">
+    import { createEvidenceRecord, summarizeEvidence } from './war-room-evidence.js';
     const loginForm = document.querySelector('#login-form');
     const authStatus = document.querySelector('#auth-status');
     const authMessage = document.querySelector('#auth-message');
@@ -113,6 +182,27 @@
     const deviceRefreshButton = document.querySelector('#device-refresh');
     const deviceMessage = document.querySelector('#device-message');
     const connectionStatus = document.querySelector('#connection-status');
+    const warRoom = document.querySelector('#war-room');
+    const warRoomStatus = document.querySelector('#war-room-status');
+    const warRoomRefreshButton = document.querySelector('#war-room-refresh');
+    const warRoomRuleSummary = document.querySelector('#war-room-rule-summary');
+    const warRoomRuleList = document.querySelector('#war-room-rule-list');
+    const warRoomDetectionSummary = document.querySelector('#war-room-detection-summary');
+    const warRoomDetectionDetail = document.querySelector('#war-room-detection-detail');
+    const warRoomRevocationSummary = document.querySelector('#war-room-revocation-summary');
+    const warRoomRevocationDetail = document.querySelector('#war-room-revocation-detail');
+    const warRoomRecoverySummary = document.querySelector('#war-room-recovery-summary');
+    const warRoomRecoveryDetail = document.querySelector('#war-room-recovery-detail');
+    const warRoomDeviceSummary = document.querySelector('#war-room-device-summary');
+    const warRoomDeviceDetail = document.querySelector('#war-room-device-detail');
+    const warRoomRecordSummary = document.querySelector('#war-room-record-summary');
+    const warRoomRecordDetail = document.querySelector('#war-room-record-detail');
+    const warRoomRunApiChecksButton = document.querySelector('#war-room-run-api-checks');
+    const warRoomExportApiChecksButton = document.querySelector('#war-room-export-api-checks');
+    const warRoomApiChecksStatus = document.querySelector('#war-room-api-checks-status');
+    const warRoomApiChecksRows = document.querySelector('#war-room-api-checks-rows');
+    let warRoomEvidenceRows = [];
+    let activeWarRoomCheck = null;
     const installButton = document.querySelector('#install-app');
     const installStatus = document.querySelector('#install-status');
     let installPromptEvent = null;
@@ -359,6 +449,219 @@
       return data;
     }
 
+    function renderWarRoomEvidence() {
+      if (!warRoomEvidenceRows.length) {
+        warRoomApiChecksRows.replaceChildren();
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 7;
+        cell.textContent = '미실행 · 아직 실제 요청 결과가 없습니다.';
+        row.append(cell);
+        warRoomApiChecksRows.append(row);
+        warRoomExportApiChecksButton.disabled = true;
+        return;
+      }
+      warRoomApiChecksRows.replaceChildren(...warRoomEvidenceRows.map(result => {
+        const row = document.createElement('tr');
+        const values = [
+          result.label,
+          `${result.method} ${result.path}`,
+          result.expected,
+          result.actual,
+          `${result.requestId} (${result.requestIdSource === 'server' ? '서버' : '클라이언트'})`,
+          result.checkedAt,
+          result.verdict,
+        ];
+        for (let index = 0; index < values.length; index += 1) {
+          const cell = document.createElement('td');
+          cell.textContent = values[index];
+          if (index === 6) cell.className = 'evidence-result';
+          row.append(cell);
+        }
+        return row;
+      }));
+      warRoomExportApiChecksButton.disabled = false;
+    }
+
+    function addWarRoomEvidence(input) {
+      warRoomEvidenceRows.push(createEvidenceRecord(input));
+      renderWarRoomEvidence();
+      const summary = summarizeEvidence(warRoomEvidenceRows);
+      warRoomApiChecksStatus.textContent = `실제 요청 기록 ${summary.total}건 · 기대 결과 일치 ${summary.matched}건 · 불일치 ${summary.mismatched}건 · HTTP 미확인 ${summary.unverified}건`;
+    }
+
+    async function runWarRoomApiChecks() {
+      if (!session?.access_token) {
+        warRoomApiChecksStatus.textContent = '로그인 후 실행할 수 있습니다.';
+        return;
+      }
+      warRoomRunApiChecksButton.disabled = true;
+      warRoomEvidenceRows = [];
+      renderWarRoomEvidence();
+      warRoomApiChecksStatus.textContent = '읽기 전용 API 요청을 실행하고 있습니다.';
+
+      const requestId = () => crypto.randomUUID();
+      async function runDirectCheck({ label, expectedStatus, expectedCode, headers }) {
+        const id = requestId();
+        try {
+          const response = await fetch('/api/notes', {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { 'X-Client-Request-ID': id, ...headers },
+          });
+          const data = await response.json().catch(() => ({}));
+          addWarRoomEvidence({
+            label, method: 'GET', path: '/api/notes', expectedStatus, expectedCode,
+            responseStatus: response.status,
+            responseCode: typeof data?.error === 'string' ? data.error : null,
+            responseRequestId: response.headers.get('x-request-id') || response.headers.get('x-vercel-id'),
+            clientRequestId: id,
+            checkedAt: new Date().toISOString(),
+          });
+        } catch (error) {
+          addWarRoomEvidence({
+            label, method: 'GET', path: '/api/notes', expectedStatus, expectedCode,
+            responseStatus: null, responseCode: null, responseRequestId: null,
+            clientRequestId: id, checkedAt: new Date().toISOString(),
+            error: error instanceof Error ? error.message : '네트워크 요청 실패',
+          });
+        }
+      }
+
+      try {
+        await runDirectCheck({
+          label: '인증 없는 조회 차단', expectedStatus: 401,
+          expectedCode: 'AUTHENTICATION_REQUIRED', headers: {},
+        });
+        await runDirectCheck({
+          label: '기기 서명 없는 조회 차단', expectedStatus: 403,
+          expectedCode: 'DEVICE_SIGNATURE_REQUIRED',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+
+        const id = requestId();
+        const check = {
+          label: '승인 기기의 정상 서명 조회', method: 'GET', path: '/api/notes',
+          expectedStatus: 200, expectedCode: null, clientRequestId: id,
+          responseStatus: null, responseCode: null, responseRequestId: null,
+          checkedAt: new Date().toISOString(),
+        };
+        activeWarRoomCheck = check;
+        try {
+          await api('/api/notes', { headers: { 'X-Client-Request-ID': id } });
+          if (activeWarRoomCheck) {
+            activeWarRoomCheck = null;
+            addWarRoomEvidence({ ...check, error: '보호 API 응답 상태를 기록하지 못했습니다.' });
+          }
+        } catch (error) {
+          if (activeWarRoomCheck) {
+            const pending = activeWarRoomCheck;
+            activeWarRoomCheck = null;
+            addWarRoomEvidence({
+              ...pending,
+              error: error instanceof Error ? error.message : '보호 API 요청 전 단계에서 중단됐습니다.',
+            });
+          }
+        }
+      } finally {
+        warRoomRunApiChecksButton.disabled = false;
+        const summary = summarizeEvidence(warRoomEvidenceRows);
+        warRoomApiChecksStatus.textContent = `완료: 기록 ${summary.total}건 · 일치 ${summary.matched}건 · 불일치 ${summary.mismatched}건 · HTTP 미확인 ${summary.unverified}건. 나머지 41종 시험은 이 실행에서 수행하지 않았습니다.`;
+      }
+    }
+
+    warRoomExportApiChecksButton.addEventListener('click', () => {
+      const report = {
+        schema: 'aleph.war-room.api-evidence.v1',
+        exportedAt: new Date().toISOString(),
+        scope: '이 파일은 버튼 실행 중 실제로 확인한 API 응답 메타데이터만 포함하며 41종 전체 시험 결과가 아닙니다.',
+        results: warRoomEvidenceRows,
+      };
+      const blob = new Blob([JSON.stringify(report, null, 2) + '\n'], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'war-room-api-evidence.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+
+    function renderWarRoom(summary) {
+      const checkedAt = new Date(summary.checkedAt);
+      warRoomStatus.textContent = `서버 요약 응답 확인 · ${checkedAt.toLocaleString('ko-KR')} · 요청 ID ${summary.requestId}`;
+
+      const ruleIds = Array.isArray(summary.decision?.ruleIds) ? summary.decision.ruleIds : [];
+      warRoomRuleSummary.textContent = summary.decision?.status === 'available'
+        ? `${ruleIds.length}개 규칙 · 서버 코드 확인`
+        : '판정기 규칙을 확인하지 못했습니다.';
+      warRoomRuleList.replaceChildren(...ruleIds.map(ruleId => {
+        const item = document.createElement('li');
+        item.textContent = ruleId;
+        return item;
+      }));
+
+      warRoomDetectionSummary.textContent = summary.detection?.status === 'not_connected'
+        ? '운영 사건 API 미연결 · 건수 미확인'
+        : '실제 사건 결과 확인 필요';
+      warRoomDetectionDetail.textContent = summary.detection?.message || '탐지 사건 응답을 확인할 수 없습니다.';
+
+      warRoomRevocationSummary.textContent = summary.revocation?.status === 'not_executed'
+        ? '실제 회수 미실행'
+        : '회수 실행 상태 미확인';
+      warRoomRevocationDetail.textContent = summary.revocation?.message || '회수 결과를 확인할 수 없습니다.';
+
+      if (summary.recovery?.status === 'verified') {
+        warRoomRecoverySummary.textContent = `검증된 백업 버전: ${summary.recovery.revision}`;
+        warRoomRecoveryDetail.textContent = '현재 계정 소유 백업의 서버 검증 결과입니다. 메모 내용은 표시하지 않습니다.';
+      } else {
+        warRoomRecoverySummary.textContent = '복구 버전 미확인';
+        warRoomRecoveryDetail.textContent = `상태: ${summary.recovery?.reason || summary.recovery?.status || '조회 불가'}`;
+      }
+
+      if (summary.deviceApproval?.status === 'available') {
+        const count = summary.deviceApproval.counts || {};
+        warRoomDeviceSummary.textContent = `승인 ${count.approved ?? 0} · 대기 ${count.pending ?? 0} · 거부 ${count.rejected ?? 0}`;
+        warRoomDeviceDetail.textContent = '서버 DB의 실제 상태 건수이며 기기 이름과 ID는 숨겼습니다.';
+      } else {
+        warRoomDeviceSummary.textContent = '기기 상태 조회 불가';
+        warRoomDeviceDetail.textContent = '서버 응답에서 기기 상태를 확인하지 못했습니다.';
+      }
+
+      warRoomRecordSummary.textContent = summary.serverRecords?.status === 'not_connected'
+        ? '저장형 서버 기록 API 미연결'
+        : '서버 기록 확인 필요';
+      warRoomRecordDetail.textContent = summary.serverRecords?.message || '조회되지 않은 기록은 0건으로 간주하지 않습니다.';
+    }
+
+    async function refreshWarRoom(retried = false) {
+      if (!session?.access_token) return;
+      warRoomRefreshButton.disabled = true;
+      warRoomStatus.textContent = '서버 요약을 조회하고 있습니다.';
+      try {
+        const response = await fetch('/api/war-room', {
+          method: 'GET',
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 401 && !retried) {
+          const refreshed = await refreshSession();
+          if (refreshed?.access_token && refreshed?.refresh_token) {
+            saveSession({ ...refreshed, user: refreshed.user || session.user });
+            return await refreshWarRoom(true);
+          }
+          await updateSession(null);
+          return;
+        }
+        if (!response.ok) throw new Error(data.error || `요약 조회 실패 (HTTP ${response.status})`);
+        renderWarRoom(data);
+      } catch (error) {
+        warRoomStatus.textContent = `실제 서버 요약 조회 실패: ${error.message}`;
+      } finally {
+        warRoomRefreshButton.disabled = false;
+      }
+    }
+
     async function api(path, options = {}, retried = false) {
       if (!session?.access_token) throw new Error('로그인이 필요합니다.');
       if (!window.isSecureContext || !crypto?.subtle || !navigator.credentials) {
@@ -416,6 +719,17 @@
         await updateSession(null);
       }
 
+      if (activeWarRoomCheck) {
+        const check = activeWarRoomCheck;
+        activeWarRoomCheck = null;
+        addWarRoomEvidence({
+          ...check,
+          responseStatus: response.status,
+          responseCode: typeof data?.error === 'string' ? data.error : null,
+          responseRequestId: response.headers.get('x-request-id') || response.headers.get('x-vercel-id'),
+          checkedAt: new Date().toISOString(),
+        });
+      }
       if (!response.ok) throw new Error(data.error || `요청 실패 (HTTP ${response.status})`);
       return data;
     }
@@ -495,6 +809,7 @@
       loginForm.hidden = signedIn;
       logoutButton.hidden = !signedIn;
       deviceControls.hidden = !signedIn;
+      warRoom.hidden = !signedIn;
       workspace.hidden = true;
       sampleSection.hidden = true;
 
@@ -515,6 +830,8 @@
         return;
       }
 
+      await refreshWarRoom();
+
       try {
         connectionStatus.textContent = navigator.onLine
           ? ''
@@ -530,6 +847,9 @@
         showMessage(deviceMessage, friendlyError(error));
       }
     }
+
+    warRoomRefreshButton.addEventListener('click', () => { void refreshWarRoom(); });
+    warRoomRunApiChecksButton.addEventListener('click', () => { void runWarRoomApiChecks(); });
 
     deviceRegisterButton.addEventListener('click', async () => {
       deviceRegisterButton.disabled = true;

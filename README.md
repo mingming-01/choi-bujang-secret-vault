@@ -228,3 +228,64 @@ npm run detect:test
 - 로컬 테스트 결과만으로 실제 배포 환경의 동작이나 공식 심판 통과를 확정할 수 없습니다.
 - `aleph.config.json`의 `step` 값은 11단계로 설정합니다. 설정 변경 후 실제 파일 값을 확인해야 합니다.
 - Git 커밋 및 `npm run bundle` 실행 결과는 별도로 확인해야 합니다.
+
+
+--
+## 12단계: 탈환 작전실을 완성합니다
+
+### 엔진 출처와 학생 구현의 범위
+
+- 공식 판정·총공세 심판은 교육과정에서 제공하는 **ALEPH SDP 엔진**을 사용합니다. 이 저장소는 제공 엔진의 내부 구현을 자체 엔진인 것처럼 재현하지 않습니다.
+- 학생 작업으로 관리하는 코드는 `src/decider.mjs`의 요청 판정 규칙, `src/detect.mjs`의 가상 사건 탐지, `src/device-approval.mjs`의 WebAuthn 기기 승인 검증, 메모 API 소유권 검사, 복구 API, `api/war-room.js` 및 `public/war-room-evidence.js`의 요약·실제 응답 기록 화면입니다.
+- `npm run decider:test`와 `npm run detect:test`는 로컬 가상 입력 시험입니다. 이 결과를 ALEPH SDP 공식 판정이나 운영 환경에서 실제 차단·회수가 실행됐다는 증거로 간주하지 않습니다.
+- `api/threat-intel.js`는 아직 `501 THREAT_INTEL_NOT_IMPLEMENTED`를 반환하는 미구현 경로입니다. 공식 침해 정보 조회가 구현된 것으로 표시하지 않습니다.
+- 탈환 작전실의 조회 불가·미연결·미실행은 성공이나 0건을 뜻하지 않습니다. 화면의 실제 요청 기록은 실행한 HTTP 요청에 한해서만 일치·불일치·미검증으로 구분합니다. 가상 메모 본문, 토큰, 개인 키는 기록하거나 내보내지 않습니다.
+- 41종 총공세는 이 문서만으로 실행 완료가 되지 않습니다. 각 시험의 실제 요청·응답 근거를 확인한 뒤에만 결과를 기록합니다.
+
+### 새 환경 설치
+
+필수 런타임은 Node.js 22 이상입니다. 저장소를 새 작업 폴더에 복제한 후 의존성을 설치합니다.
+
+```sh
+git clone https://github.com/mingming-01/choi-bujang-secret-vault.git
+cd choi-bujang-secret-vault
+npm install
+```
+
+비밀값은 Git, README, 스크린샷 또는 제출 JSON에 기록하지 않습니다. Supabase 및 WebAuthn 설정은 승인된 관리 경로를 통해 배포 환경의 서버 전용 환경변수로 구성합니다. 값은 문서에 복사하지 않습니다.
+
+### 로컬 확인 및 실행
+
+다음 명령은 구현된 로컬 테스트를 실행합니다.
+
+```sh
+npm run test:package
+npm run test:r5
+npm run decider:test
+npm run detect:test
+node --test test/device-approval.test.mjs test/war-room.test.mjs test/war-room-evidence.test.mjs
+```
+
+`npm run build -- --local`은 로컬 빌드 확인용입니다. 일반 `npm run build`는 Vercel이 제공하는 저장소·커밋·배포 식별 환경변수를 사용해 `public/aleph.json`을 생성하므로, 해당 환경변수가 없는 일반 로컬 셸에서는 실패할 수 있습니다. `npm run build`는 HTTP 서버를 시작하지 않습니다.
+
+이 프로젝트의 `package.json`에는 `start` 또는 `dev` 스크립트가 없습니다. API 함수까지 포함한 로컬 앱은 Vercel CLI가 설치된 환경에서 프로젝트 루트의 `vercel dev`로 실행합니다. 종료하려면 해당 터미널에서 `Ctrl+C`를 누릅니다. 앱을 열어 보는 것만으로 실제 Supabase 설정, 관리자 기기 승인 또는 공식 심판 결과가 검증되는 것은 아닙니다.
+
+### 배포와 중지
+
+1. 공개 GitHub 저장소를 Vercel 프로젝트에 연결하고, `vercel.json`의 빌드 명령 `npm run build`와 출력 폴더 `public`을 유지합니다.
+2. Vercel의 시스템 환경변수 및 승인된 서버 전용 변수 구성을 확인합니다. 필요한 변수 이름에는 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `WEBAUTHN_ORIGIN`, `WEBAUTHN_RP_ID`, `RESTORE_BACKUP_URL`, `RESTORE_BACKUP_SHA256` 등이 포함될 수 있습니다. 각 기능에 필요한 이름과 용도만 확인하고, 실제 값은 저장소나 화면 공유에 노출하지 않습니다.
+3. `supabase/step-11-device-approval.sql`은 파일이 존재한다고 데이터베이스에 자동 적용되는 것이 아닙니다. 기기 승인이 필요한 환경에서는 권한 있는 운영자가 검토·적용 여부를 확인하고, 적용 전에는 운영 기기 등록이 동작한다고 주장하지 않습니다.
+4. 배포를 일시 중지하거나 이전 정상 배포로 돌아가려면 Vercel 프로젝트의 Deployments 화면에서 대상 배포를 확인하고, 플랫폼이 제공하는 중지·롤백 절차를 사용합니다. 로컬 서버는 실행 터미널에서 `Ctrl+C`로 중지합니다.
+
+### 자료 복구와 되돌리기
+
+- `/api/restore`는 사전 구성된 비공개 백업을 다시 읽어 전체 파일 SHA-256 및 JSON·소유권·본문 해시를 검증하고, 확인 절차를 거쳐 지정된 `learning_notes` 한 건만 복구하도록 설계되었습니다. 운영자가 승인한 백업과 서버 전용 `RESTORE_BACKUP_URL`, `RESTORE_BACKUP_SHA256` 설정을 확인할 수 없으면 복구 요청을 실행하지 않습니다.
+- 복구 미리보기의 백업 버전, 대상, 소유자 및 변경 범위를 검토하기 전에는 확인 문자열을 이용한 확정 요청을 보내지 않습니다. 테스트 fixture는 운영 백업이 아닙니다. 복구 뒤에는 대상 행의 소유자·본문 해시와 관계없는 자료 및 감사 기록의 보존을 별도로 확인합니다.
+- 코드 배포를 되돌릴 때는 Git에서 변경 파일과 작업 상태를 먼저 확인하고, 기존 작업을 보존하면서 수정 커밋을 `git revert <문제가 된 커밋>`으로 되돌리는 방식을 우선합니다. `git reset --hard`로 작업 트리나 다른 변경을 지우지 않습니다.
+
+### 현재 검증 범위와 미실행 항목
+
+- 제작 1의 요약 API 로컬 테스트와 제작 2의 실제 응답 기록 모듈 테스트는 로컬에서 실행했을 때의 결과만 증명합니다.
+- 브라우저에서 API 점검 버튼을 누른 결과가 없는 시험은 미실행입니다. 서버 응답을 받지 못한 요청은 미검증으로 남기며, 서버 로그나 HTTP 결과가 없으면 요청 성공을 추정하지 않습니다.
+- 1~11단계의 전체 회귀 시험, 배포 환경의 정상 사용자 요청과 거부 요청, 41종 총공세, 관리자 기기 승인, 실제 백업 복구 및 공식 심판 통과는 실제로 수행하고 근거를 확보하기 전까지 미확인입니다.
+- 저장점 생성 전 `aleph.config.json`의 `step`이 `12`인지 확인합니다. README 기록, 커밋 및 제출 JSON의 커밋 해시는 실제 생성 결과로 대조합니다.

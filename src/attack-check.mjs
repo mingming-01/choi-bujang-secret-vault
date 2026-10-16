@@ -400,7 +400,86 @@ async function runLocalStep11Checks() {
   ];
 }
 
+
+async function runStep12ApiChecks(config) {
+  const app = getAppUrl(config);
+  const checks = [
+    {
+      attackId: 'step12_unauth_war_room',
+      expected: '인증 없는 GET /api/war-room은 401 또는 403으로 거부',
+      method: 'GET',
+      path: '/api/war-room',
+    },
+    {
+      attackId: 'step12_unauth_notes',
+      expected: '인증 없는 GET /api/notes는 401 또는 403으로 거부',
+      method: 'GET',
+      path: '/api/notes',
+    },
+    {
+      attackId: 'step12_unauth_restore',
+      expected: '인증 없는 POST /api/restore는 401 또는 403으로 거부',
+      method: 'POST',
+      path: '/api/restore',
+      body: {},
+    },
+  ];
+
+  const results = [];
+
+  for (const check of checks) {
+    const checkedAt = new Date().toISOString();
+
+    try {
+      const options = { method: check.method };
+
+      if (check.body !== undefined) {
+        options.headers = { 'content-type': 'application/json' };
+        options.body = JSON.stringify(check.body);
+      }
+
+      const { response, body } = await requestJson(
+        new URL(check.path, app),
+        options,
+      );
+
+      const denied = response.status === 401 || response.status === 403;
+      const errorCode = typeof body?.error === 'string'
+        && /^[A-Z0-9_.-]{1,80}$/iu.test(body.error)
+        ? body.error
+        : 'not_provided';
+      const rawRequestId = response.headers.get('x-request-id')
+        || response.headers.get('x-vercel-id')
+        || body?.requestId;
+      const requestId = typeof rawRequestId === 'string'
+        && rawRequestId.length <= 100
+        ? rawRequestId
+        : 'not_provided';
+
+      results.push({
+        attackId: check.attackId,
+        expected: check.expected,
+        observed: `${denied ? '기대 상태와 일치' : '기대 상태와 불일치'}: `
+          + `HTTP${response.status}; error=${errorCode}; `
+          + `requestId=${requestId}; checkedAt=${checkedAt}`,
+      });
+    } catch (error) {
+      results.push({
+        attackId: check.attackId,
+        expected: check.expected,
+        observed: `미검증: HTTP 응답 없음; checkedAt=${checkedAt}; `
+          + `cause=${error?.name || 'RequestError'}`,
+      });
+    }
+  }
+
+  return results;
+}
+
 export async function runAttackChecks(config) {
+  if (config.step === 12) {
+    return runStep12ApiChecks(config);
+  }
   if (config.step === 11) {
     return runLocalStep11Checks();
   }

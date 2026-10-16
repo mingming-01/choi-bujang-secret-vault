@@ -88,6 +88,10 @@ function allowedTarget(method, path, origin) {
     return ['GET', 'POST'].includes(method);
   }
 
+  if (url.pathname === '/api/operations') {
+    return method === 'GET';
+  }
+
   if (url.pathname === '/api/restore') {
     return method === 'POST';
   }

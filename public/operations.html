@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a28">
+  <meta name="robots" content="noindex, nofollow">
+  <title>BYTE BACK | 탈환 작전실</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; background: #101a28; color: #ecf4ff; }
+    main { max-width: 940px; margin: auto; padding: 30px 20px 60px; }
+    h1 { font-size: clamp(30px, 6vw, 46px); margin: 10px 0; }
+    h2 { font-size: 21px; margin: 0 0 14px; }
+    p { color: #bfd0e5; line-height: 1.6; }
+    a { color: #8ad8df; }
+    .eyebrow { color: #8ad8df; font-weight: 700; letter-spacing: .08em; }
+    .panel { margin: 18px 0; padding: 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .tile { padding: 14px; border: 1px solid #40566e; border-radius: 10px; background: #142235; }
+    .label { display: block; color: #9eb3cb; font-size: 13px; }
+    .value { display: block; margin-top: 5px; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+    .muted { color: #9eb3cb; }
+    .status { color: #8ad8df; font-weight: 700; }
+    .warning { color: #ffd68a; }
+    form { display: grid; gap: 10px; max-width: 520px; }
+    label { display: grid; gap: 5px; color: #bfd0e5; }
+    input, button { font: inherit; }
+    input { padding: 10px; border: 1px solid #51667c; border-radius: 8px; background: #101a28; color: #ecf4ff; }
+    button { width: fit-content; padding: 10px 14px; border: 0; border-radius: 8px; color: #101a28; background: #8ad8df; font-weight: 700; cursor: pointer; }
+    button.secondary { background: #40566e; color: #ecf4ff; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    ul { list-style: none; padding: 0; display: grid; gap: 10px; }
+    li { padding: 12px; border: 1px solid #40566e; border-radius: 9px; }
+    code { overflow-wrap: anywhere; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">BYTE BACK · 탈환 작전실</div>
+  <h1>방어 상태 요약</h1>
+  <p>이 화면은 승인된 기기로 서버 요약 API를 조회합니다. 설정된 규칙과 실제 API에서 확인된 결과를 분리하며, 실행되지 않은 판정·탐지·회수·복구는 완료로 표시하지 않습니다. 가상 메모 본문은 조회하거나 표시하지 않습니다.</p>
+  <p><a href="/">← 자료실로</a></p>
+
+  <section class="panel" aria-labelledby="auth-heading">
+    <h2 id="auth-heading">서버 인증</h2>
+    <p id="auth-status" class="status" role="status" aria-live="polite">로그인하지 않았습니다.</p>
+    <form id="login-form">
+      <label>이메일<input id="email" type="email" autocomplete="username" required></label>
+      <label>비밀번호<input id="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">로그인</button>
+    </form>
+    <div id="session-controls" class="actions" hidden>
+      <button id="refresh" type="button">서명하여 요약 새로고침</button>
+      <button id="logout" type="button" class="secondary">로그아웃</button>
+    </div>
+    <p id="message" role="status" aria-live="polite"></p>
+  </section>
+
+  <section id="dashboard" hidden aria-labelledby="dashboard-heading">
+    <h2 id="dashboard-heading">응답 요약</h2>
+    <p id="observed-at" class="muted"></p>
+    <div class="grid">
+      <div class="tile"><span class="label">판정기 규칙</span><span id="rule-count" class="value">—</span></div>
+      <div class="tile"><span class="label">실제 판정</span><span id="decision-status" class="value">—</span></div>
+      <div class="tile"><span class="label">탐지 사건</span><span id="incident-count" class="value">—</span></div>
+      <div class="tile"><span class="label">접속 회수</span><span id="detection-status" class="value">—</span></div>
+      <div class="tile"><span class="label">복구 작업</span><span id="recovery-status" class="value">—</span></div>
+      <div class="tile"><span class="label">복구 버전</span><span id="restore-version" class="value">—</span></div>
+    </div>
+
+    <section class="panel">
+      <h2>판정기 규칙</h2>
+      <ul id="rules"></ul>
+      <p class="muted">규칙은 코드의 설정 요약입니다. 이 조회는 decide() 판정을 실행하지 않습니다.</p>
+    </section>
+
+    <section class="panel">
+      <h2>탐지 사건</h2>
+      <ul id="incidents"></ul>
+      <p id="incident-note" class="muted"></p>
+    </section>
+
+    <section class="panel">
+      <h2>복구 정보</h2>
+      <div class="grid">
+        <div class="tile"><span class="label">복구 경로</span><span id="restore-route" class="value">—</span></div>
+        <div class="tile"><span class="label">실제 복구 버전</span><span id="restore-version-detail" class="value">—</span></div>
+        <div class="tile"><span class="label">변경 항목 수</span><span id="changed-field-count" class="value">—</span></div>
+      </div>
+      <p class="muted">복구 미리보기나 커밋 API를 호출하지 않았습니다. 실제 버전과 복구 결과는 이 요약 API에서 관측되지 않았습니다.</p>
+    </section>
+
+    <section class="panel">
+      <h2>가린 서버 기록</h2>
+      <p class="muted">기록은 방금 실제 응답한 요약 요청에 대응합니다. 화면의 집계값은 같은 API 응답의 기록 필드와 비교합니다. 계정 식별자, 인증 토큰, 기기 식별자와 메모 본문은 기록하지 않습니다.</p>
+      <ul id="records"></ul>
+      <p id="consistency" class="status" role="status" aria-live="polite"></p>
+    </section>
+  </section>
+</main>
+<script type="module">
+  const loginForm = document.querySelector('#login-form');
+  const authStatus = document.querySelector('#auth-status');
+  const sessionControls = document.querySelector('#session-controls');
+  const dashboard = document.querySelector('#dashboard');
+  const message = document.querySelector('#message');
+  let session = null;
+  let latestSnapshot = null;
+
+  function setMessage(text) { message.textContent = text; }
+  function saveSession(value) {
+    session = value?.access_token && value?.refresh_token ? value : null;
+    loginForm.hidden = Boolean(session);
+    sessionControls.hidden = !session;
+    authStatus.textContent = session ? '로그인했습니다. 요약 조회는 승인 기기 서명이 필요합니다.' : '로그인하지 않았습니다.';
+    if (!session) {
+      dashboard.hidden = true;
+      latestSnapshot = null;
+    }
+  }
+  function base64url(bytes) {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+  function fromBase64url(value) {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+    const binary = atob(padded);
+    return Uint8Array.from(binary, character => character.charCodeAt(0));
+  }
+  function serializeAssertion(credential) {
+    const response = credential.response;
+    return {
+      id: credential.id,
+      rawId: base64url(new Uint8Array(credential.rawId)),
+      type: credential.type,
+      response: {
+        clientDataJSON: base64url(new Uint8Array(response.clientDataJSON)),
+        authenticatorData: base64url(new Uint8Array(response.authenticatorData)),
+        signature: base64url(new Uint8Array(response.signature)),
+        userHandle: response.userHandle ? base64url(new Uint8Array(response.userHandle)) : null,
+      },
+      clientExtensionResults: credential.getClientExtensionResults(),
+      ...(credential.authenticatorAttachment ? { authenticatorAttachment: credential.authenticatorAttachment } : {}),
+    };
+  }
+  async function postAuthAction(action, details) {
+    const response = await fetch('/api/auth', {
+      method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ action, ...details }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+    return data;
+  }
+  function showValue(selector, value) {
+    document.querySelector(selector).textContent = value == null ? '미실행' : String(value);
+  }
+  function render(snapshot) {
+    const summary = snapshot.summary;
+    document.querySelector('#observed-at').textContent = `서버 응답 시각: ${snapshot.observedAt}`;
+    showValue('#rule-count', summary.decider.rules.length);
+    showValue('#decision-status', summary.decider.decisionStatus === 'not_run' ? '미실행' : summary.decider.decisionStatus);
+    showValue('#incident-count', summary.detection.incidentCount == null ? '미실행' : summary.detection.incidentCount);
+    showValue('#detection-status', summary.detection.status === 'not_run' ? '탐지 및 실제 회수 미실행' : summary.detection.status);
+    showValue('#recovery-status', summary.recovery.status === 'not_run' ? '복구 미실행' : summary.recovery.status);
+    showValue('#restore-version', summary.recovery.restoreVersion);
+    showValue('#restore-route', summary.recovery.restoreRoute);
+    showValue('#restore-version-detail', summary.recovery.restoreVersion);
+    showValue('#changed-field-count', summary.recovery.changedFieldCount);
+
+    const rules = document.querySelector('#rules');
+    rules.replaceChildren(...summary.decider.rules.map(rule => {
+      const item = document.createElement('li');
+      const title = document.createElement('strong');
+      const description = document.createElement('span');
+      title.textContent = rule.id;
+      description.textContent = ` — ${rule.summary}`;
+      item.append(title, description);
+      return item;
+    }));
+
+    const incidents = document.querySelector('#incidents');
+    incidents.replaceChildren();
+    document.querySelector('#incident-note').textContent = summary.detection.status === 'not_run'
+      ? '실제 사건 목록은 조회되지 않았습니다. 사건 수는 0이 아니라 미실행입니다.'
+      : `실제 API 응답에서 사건 ${summary.detection.incidents.length}건을 확인했습니다.`;
+    if (summary.detection.incidents.length === 0) {
+      const empty = document.createElement('li');
+      empty.textContent = summary.detection.status === 'not_run' ? '미실행 — 사건 데이터 없음' : '응답된 사건 없음';
+      incidents.append(empty);
+    } else {
+      for (const incident of summary.detection.incidents) {
+        const item = document.createElement('li');
+        item.textContent = `${incident.id} · ${incident.status}`;
+        incidents.append(item);
+      }
+    }
+
+    const records = document.querySelector('#records');
+    records.replaceChildren(...snapshot.maskedServerRecords.map(record => {
+      const item = document.createElement('li');
+      item.textContent = `요청 ${record.requestRef} · 기록 ${record.recordedAt} · 규칙 ${record.ruleCount}개 · 판정 ${record.decisionStatus === 'not_run' ? '미실행' : record.decisionStatus} · 탐지 ${record.detectionStatus === 'not_run' ? '미실행' : record.detectionStatus} · 사건 ${record.incidentCount == null ? '미실행' : record.incidentCount} · 회수 기록 ${record.incidentRecordCount}건 · 복구 ${record.recoveryStatus === 'not_run' ? '미실행' : record.recoveryStatus} · 복구 버전 ${record.restoreVersion ?? '미실행'}`;
+      return item;
+    }));
+
+    const record = snapshot.maskedServerRecords[0];
+    const consistent = Boolean(record)
+      && record.ruleCount === summary.decider.rules.length
+      && record.decisionStatus === summary.decider.decisionStatus
+      && record.detectionStatus === summary.detection.status
+      && record.incidentCount === summary.detection.incidentCount
+      && record.incidentRecordCount === summary.detection.recordCount
+      && record.recoveryStatus === summary.recovery.status
+      && record.restoreVersion === summary.recovery.restoreVersion;
+    const consistency = document.querySelector('#consistency');
+    consistency.textContent = consistent
+      ? '일치 확인: 화면 집계와 같은 API 응답의 가린 서버 기록이 일치합니다.'
+      : '불일치: 화면과 가린 서버 기록의 집계가 다릅니다. 결과를 사용하지 마세요.';
+    consistency.classList.toggle('warning', !consistent);
+    dashboard.hidden = false;
+  }
+  async function loadOperations() {
+    const button = document.querySelector('#refresh');
+    button.disabled = true;
+    setMessage('승인 기기 서명을 확인하고 서버 요약을 요청합니다.');
+    try {
+      if (!window.isSecureContext || !navigator.credentials?.get || !crypto?.subtle) {
+        throw new Error('HTTPS와 WebAuthn 지원 브라우저가 필요합니다.');
+      }
+      const bodySha256 = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array())));
+      const challengeData = await postAuthAction('device-challenge', {
+        method: 'GET', path: '/api/operations', bodySha256,
+      });
+      const publicKey = {
+        ...challengeData.options,
+        challenge: fromBase64url(challengeData.options.challenge),
+        allowCredentials: (challengeData.options.allowCredentials || []).map(item => ({
+          ...item, id: fromBase64url(item.id),
+        })),
+      };
+      const credential = await navigator.credentials.get({ publicKey });
+      if (!credential) throw new Error('기기 인증이 취소되었습니다.');
+      const assertion = serializeAssertion(credential);
+      const assertionHeader = base64url(new TextEncoder().encode(JSON.stringify(assertion)));
+      const response = await fetch('/api/operations', {
+        method: 'GET', cache: 'no-store',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'X-Device-Challenge': challengeData.options.challenge,
+          'X-Device-Assertion': assertionHeader,
+        },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      if (data.schema !== 'aleph.operations-room.v1' || !data.summary || !Array.isArray(data.maskedServerRecords)) {
+        throw new Error('요약 API 응답 형식이 올바르지 않습니다.');
+      }
+      latestSnapshot = data;
+      render(data);
+      setMessage('서버 응답을 확인했습니다. 판정·탐지·회수·복구 실행 여부는 각 상태에 따로 표시됩니다.');
+    } catch (error) {
+      setMessage(error.message || '작전실 요약을 불러오지 못했습니다.');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  loginForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    setMessage('로그인 요청 중입니다.');
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.querySelector('#email').value,
+          password: document.querySelector('#password').value,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.session?.access_token) throw new Error('로그인에 실패했습니다.');
+      saveSession(data.session);
+      setMessage('로그인했습니다. 승인된 기기에서 요약을 조회하세요.');
+    } catch (error) {
+      setMessage(error.message || '로그인 요청을 처리하지 못했습니다.');
+    }
+  });
+  document.querySelector('#refresh').addEventListener('click', loadOperations);
+  document.querySelector('#logout').addEventListener('click', async () => {
+    try {
+      await fetch('/api/auth', {
+        method: 'DELETE', cache: 'no-store',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      });
+    } finally {
+      saveSession(null);
+      setMessage('로그아웃했습니다.');
+    }
+  });
+  // 세션·토큰·기기 키를 브라우저 저장소에 저장하지 않습니다.
+  saveSession(null);
+</script>
+</body>
+</html>
