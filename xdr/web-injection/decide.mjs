@@ -184,11 +184,6 @@ function hasRepeatedCountEvidence(alert, source) {
   return Number.isSafeInteger(count) && count >= 2;
 }
 
-function ruleLevel(alert) {
-  const level = alert?.rule?.level;
-  return Number.isFinite(level) ? level : 0;
-}
-
 export function decide(alert) {
   const settings = getSettings(alert);
   const requestText = getRequestText(alert, settings);
@@ -196,7 +191,20 @@ export function decide(alert) {
   const patterns = matchingIds(requestText, settings.patterns);
   const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
 
-    if (patterns.length > 1) {
+  if (patterns.length > 1) {
+    const repeatedPatterns = patterns.filter((pattern) =>
+      hasRepeatedCountEvidence(alert, source)
+        || hasValidCorrelation(alert, pattern, source),
+    );
+
+    if (repeatedPatterns.length > 0) {
+      return result(
+        'block',
+        0.92,
+        repeatedPatterns.join('+') + ': clear injection patterns repeated from the same valid source',
+      );
+    }
+
     return result(
       'alert',
       0.68,
@@ -228,8 +236,5 @@ export function decide(alert) {
     return result('alert', 0.6, ambiguous.join('+') + ': ambiguous signal is always alert-only');
   }
 
-  if (ruleLevel(alert) >= 5) {
-    return result('alert', 0.55, 'suspicious-severity: no request signal but elevated rule level');
-  }
   return result('record', 0.08, 'normal-or-unsupported: no injection signal');
 }
