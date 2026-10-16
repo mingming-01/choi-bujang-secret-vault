@@ -148,9 +148,8 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
       await readFile(join(root, 'xdr', moduleKey, 'patterns.json'), 'utf8'),
     ));
   }
-
-  // Correlate distinct alert IDs by normalized source + exactly one actual
-  // configured request pattern. No fixture-provided claims enter this map.
+  // Correlate distinct alert IDs from the same normalized source.
+  // Each event must match exactly one actual configured request pattern.
   const correlationByAlert = new Map();
   if (moduleKey === 'web-injection') {
     const observations = [];
@@ -165,7 +164,7 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
       const evidence = getWebInjectionEvidence(alert, webInjectionConfig);
       if (alertId && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length === 1) {
         const patternId = evidence.patterns[0];
-        const key = `${evidence.sourceAddress}\u0000${patternId}`;
+        const key = evidence.sourceAddress;
         observations.push({ alert, sourceAddress: evidence.sourceAddress, patternId, key });
         if (!groups.has(key)) groups.set(key, new Map());
         groups.get(key).set(alertId, evidence);

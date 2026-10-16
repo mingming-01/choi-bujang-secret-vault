@@ -22,7 +22,7 @@ try {
 
   const actual = await runXdr({ root: temporaryRoot, moduleKey: 'web-injection', writeError: (line) => { throw new Error(line); } });
   const expected = new Map([
-    ['wi-01', 'block'], ['wi-02', 'alert'], ['wi-03', 'block'], ['wi-04', 'block'],
+    ['wi-01', 'block'], ['wi-02', 'block'], ['wi-03', 'block'], ['wi-04', 'block'],
     ['wi-05', 'alert'], ['wi-06', 'alert'], ['wi-07', 'block'], ['wi-08', 'alert'],
     ['wi-09', 'alert'], ['wi-10', 'record'], ['wi-11', 'record'], ['wi-12', 'alert'],
     ['wi-13', 'record'], ['wi-14', 'record'], ['wi-15', 'alert'], ['wi-16', 'alert'],
@@ -32,7 +32,7 @@ try {
   ]);
   const basis = new Map([
     ['wi-01', 'clear SQL injection and independent wi-04 repeat from the same source'],
-    ['wi-02', 'actual script tag; only one event, so alert'],
+    ['wi-02', 'actual script tag; another clear injection from the same source repeats, so block'],
     ['wi-03', 'repeated traversal and independent wi-07 repeat from the same source'],
     ['wi-04', 'clear SQL injection and independent wi-01 repeat from the same source'],
     ['wi-05', 'SQL and script patterns overlap; ambiguous, never block'],
@@ -58,11 +58,15 @@ try {
     assert.equal(byId.get(alert.id)?.action, expected.get(alert.id), `${alert.id}: ${basis.get(alert.id) ?? 'ordinary input'}`);
   }
   assert.equal(expected.size, fixture.alerts.length);
-  assert.deepEqual(actual.counts, { block: 4, alert: 9, record: 13 });
+  assert.deepEqual(actual.counts, { block: 5, alert: 8, record: 13 });
   assert.equal(actual.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
-  assert.equal(actual.response?.candidateRules.length, 4, 'only repeated actual attacks become expiring candidate rules');
-  assert.equal(actual.response?.blockedCandidates, 4);
-  assert.equal(fixture.alerts.filter((alert) => alert.id >= 'wi-18' && byId.get(alert.id).action !== 'record').length, 0, 'normal events remain record');
+  assert.equal(actual.response?.candidateRules.length, 5, 'only repeated actual attacks become expiring candidate rules');
+  assert.equal(actual.response?.blockedCandidates, 5);
+  assert.equal(
+    fixture.alerts.filter((alert) => alert.id >= 'wi-18' && byId.get(alert.id).action !== 'record').length,
+    0,
+    'normal events remain record'
+  );
 
   console.log(`실행기 경보 판정 테스트 계약: ${fixture.alerts.length}개 fixture`);
   for (const alert of fixture.alerts) console.log(`${alert.id} | ${basis.get(alert.id) ?? 'ordinary input'} | ${byId.get(alert.id).action}`);

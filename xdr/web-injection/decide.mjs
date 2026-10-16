@@ -189,8 +189,14 @@ export function decide(alert) {
   }
 
   const patternName = patterns[0];
+
   if (hasValidCorrelation(alert, patternName, source)) {
-    return result('block', 0.92, `${patternName}: 유효한 출처에서 서로 다른 경보 ID의 동일 패턴 반복 확인`);
+    return result(
+      'block',
+      0.92,
+      `${patternName}: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨`
+    );
   }
+
   return result('alert', 0.68, `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`);
 }

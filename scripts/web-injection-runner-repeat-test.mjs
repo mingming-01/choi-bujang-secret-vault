@@ -50,7 +50,7 @@ try {
   const actualById = new Map(result.decisions.map((decision) => [decision.alertId, decision]));
   assert.equal(actualById.get('same-a')?.action, 'block', 'separate same-source SQL alerts correlate');
   assert.equal(actualById.get('same-b')?.action, 'block', 'same-source SQL peer is also blockable');
-  assert.equal(actualById.get('different-pattern')?.action, 'alert', 'different patterns do not share evidence');
+  assert.equal(actualById.get('different-pattern')?.action, 'block', 'different clear injection patterns from the same source count as repeated clear attacks');
   assert.equal(actualById.get('different-source')?.action, 'alert', 'different sources do not share evidence');
   assert.equal(result.decisions.filter((decision) => decision.alertId === 'duplicate-id').every((decision) => decision.action === 'alert'), true, 'duplicate IDs cannot establish distinct events');
   assert.equal(actualById.get('invalid-ip-a')?.action, 'alert', 'invalid source IPs cannot correlate');
@@ -66,7 +66,7 @@ try {
   for (const id of ['ambiguous-partial-sql', 'ambiguous-bare-script', 'ambiguous-single-traversal', 'ambiguous-command-separator', 'ambiguous-isolated-quote']) {
     assert.equal(actualById.get(id)?.action, 'alert', `${id} is a request-level ambiguous signal`);
   }
-  assert.deepEqual(result.counts, { block: 4, alert: 11, record: 6 });
+  assert.deepEqual(result.counts, { block: 5, alert: 10, record: 6 });
   assert.equal(result.response?.candidateRules.length, 0, 'missing timestamps prevent response candidates without changing decisions');
   assert.equal(result.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
 
@@ -106,7 +106,7 @@ try {
   const responderLog = await readFile(join(responderRoot, 'xdr', 'alerts.log'), 'utf8');
   assert.match(responderLog, /alert=invalid-source action=block_skipped_invalid_source/);
 
-  console.log('실행기 반복 집계 확인: 동일 출처·패턴의 고유 경보 ID만 차단 근거이며 marker/설명/count는 공격 신호가 아님');
+  console.log('실행기 반복 집계 확인: 같은 출처의 서로 다른 경보 ID에서 명확한 단일 주입이 반복될 때만 차단하며 marker/설명/count는 공격 신호가 아님');
   for (const decision of result.decisions) console.log(`${decision.alertId} | ${decision.action}`);
   console.log(`집계: block ${result.counts.block} / alert ${result.counts.alert} / record ${result.counts.record}`);
   console.log('응답기 확인: 유효한 대체 출처 필드에서 후보 생성, 잘못된 IP 출처는 거부');
