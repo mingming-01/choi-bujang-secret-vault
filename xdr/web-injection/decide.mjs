@@ -11,12 +11,6 @@ const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
   { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
-const WEAK_AMBIGUOUS_PATTERN_IDS = new Set([
-  'single-traversal-segment',
-  'isolated-quote',
-  'command-separator',
-]);
-
 function compileDefinitions(definitions) {
   if (!Array.isArray(definitions)) return [];
   return definitions.flatMap((definition) => {
@@ -180,15 +174,35 @@ function hasValidCorrelation(alert, patternName, source) {
   return ids.includes(alert.id) && ids.some((id) => id !== alert.id);
 }
 
+function hasRepeatedCountEvidence(alert, source) {
+  if (!source) return false;
+  const raw = alert?.data?.count;
+  const count = typeof raw === 'number'
+    ? raw
+    : typeof raw === 'string' && /^\d+$/.test(raw.trim())
+      ? Number(raw.trim())
+      : NaN;
+  return Number.isSafeInteger(count) && count >= 2;
+}
+
 export function decide(alert) {
   const settings = getSettings(alert);
   const requestText = getRequestText(alert, settings);
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
-  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns)
-    .filter((id) => !WEAK_AMBIGUOUS_PATTERN_IDS.has(id));
+  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
 
   if (patterns.length > 1) {
+    const repeated = hasRepeatedCountEvidence(alert, source)
+      || patterns.some((pattern) => hasValidCorrelation(alert, pattern, source));
+    if (repeated) {
+      return result(
+        'block',
+        0.92,
+        patterns.join('+') + ': overlapping clear patterns with repeat evidence from the same valid source',
+      );
+    }
+
     return result(
       'alert',
       0.68,
