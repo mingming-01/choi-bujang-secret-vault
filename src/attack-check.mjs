@@ -434,6 +434,15 @@ async function runStep12ApiChecks(config) {
   for (const check of checks) {
     const checkedAt = new Date().toISOString();
 
+    if (check.method === 'POST') {
+      results.push({
+        attackId: check.attackId,
+        expected: check.expected,
+        observed: `미실행(not_run): 격리 환경은 공개 HTTPS GET·HEAD 요청만 허용하므로 POST를 보내지 않음; checkedAt=${checkedAt}`,
+      });
+      continue;
+    }
+
     try {
       const options = { method: check.method };
 
