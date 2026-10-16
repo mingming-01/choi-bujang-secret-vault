@@ -196,13 +196,17 @@ export function decide(alert) {
   const patterns = matchingIds(requestText, settings.patterns);
   const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
 
-  if (patterns.length > 0 || ambiguous.length > 0) {
+  if (patterns.length > 0) {
     const repeated = hasRepeatedCountEvidence(alert, source)
       || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
-    const names = [...patterns, ...ambiguous].join('+');
-    if (repeated) return result('block', 0.92, names + ': injection signal repeated from the same valid source');
-    if (patterns.length > 0) return result('alert', 0.68, names + ': clear pattern without repeat evidence');
-    return result('alert', 0.6, names + ': incomplete or uncertain request signal');
+    if (repeated) {
+      return result('block', 0.92, patterns.join('+') + ': clear injection pattern repeated from the same valid source');
+    }
+    return result('alert', 0.68, patterns.join('+') + ': clear pattern without repeat evidence');
+  }
+
+  if (ambiguous.length > 0) {
+    return result('alert', 0.6, ambiguous.join('+') + ': ambiguous signal is always alert-only');
   }
 
   if (ruleLevel(alert) >= 5) {

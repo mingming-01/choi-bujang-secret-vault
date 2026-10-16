@@ -6,55 +6,55 @@
       "alertId": "wi-01",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: injection signal repeated from the same valid source"
+      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-02",
       "action": "block",
       "confidence": 0.92,
-      "reason": "script-tag: injection signal repeated from the same valid source"
+      "reason": "script-tag: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-03",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal+single-traversal-segment: injection signal repeated from the same valid source"
+      "reason": "path-traversal: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-04",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: injection signal repeated from the same valid source"
+      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-05",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection+script-tag: injection signal repeated from the same valid source"
+      "reason": "sql-injection+script-tag: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-06",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "command-separator: injection signal repeated from the same valid source"
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "command-separator: ambiguous signal is always alert-only"
     },
     {
       "alertId": "wi-07",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal+single-traversal-segment: injection signal repeated from the same valid source"
+      "reason": "path-traversal: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-08",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: injection signal repeated from the same valid source"
+      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
     },
     {
       "alertId": "wi-09",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "isolated-quote: incomplete or uncertain request signal"
+      "reason": "isolated-quote: ambiguous signal is always alert-only"
     },
     {
       "alertId": "wi-10",
@@ -72,7 +72,7 @@
       "alertId": "wi-12",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "single-traversal-segment: incomplete or uncertain request signal"
+      "reason": "single-traversal-segment: ambiguous signal is always alert-only"
     },
     {
       "alertId": "wi-13",
@@ -90,19 +90,19 @@
       "alertId": "wi-15",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "partial-sql: incomplete or uncertain request signal"
+      "reason": "partial-sql: ambiguous signal is always alert-only"
     },
     {
       "alertId": "wi-16",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "partial-script-tag: incomplete or uncertain request signal"
+      "reason": "partial-script-tag: ambiguous signal is always alert-only"
     },
     {
       "alertId": "wi-17",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "command-separator: incomplete or uncertain request signal"
+      "reason": "command-separator: ambiguous signal is always alert-only"
     },
     {
       "alertId": "wi-18",
@@ -160,8 +160,8 @@
     }
   ],
   "counts": {
-    "block": 8,
-    "alert": 9,
+    "block": 7,
+    "alert": 10,
     "record": 9
   },
   "response": {
@@ -182,10 +182,24 @@
       },
       {
         "action": "deny",
+        "source": "198.51.100.15",
+        "expiresAt": "2026-09-27T00:46:04.000Z",
+        "sourceAlert": "wi-03",
+        "patternId": "path-traversal"
+      },
+      {
+        "action": "deny",
         "source": "203.0.113.10",
         "expiresAt": "2026-09-27T01:32:11.000Z",
         "sourceAlert": "wi-04",
         "patternId": "sql-injection"
+      },
+      {
+        "action": "deny",
+        "source": "198.51.100.15",
+        "expiresAt": "2026-09-27T04:34:19.000Z",
+        "sourceAlert": "wi-07",
+        "patternId": "path-traversal"
       },
       {
         "action": "deny",
@@ -195,7 +209,7 @@
         "patternId": "sql-injection"
       }
     ],
-    "blockedCandidates": 4,
+    "blockedCandidates": 6,
     "skippedInvalidTimestamp": 0,
     "skippedInvalidSource": 0,
     "appliedToZtna": true

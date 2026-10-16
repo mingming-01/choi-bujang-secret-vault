@@ -83,3 +83,11 @@ timestamp=2026-09-27T10:44:18+09:00 alert=wi-12 action=alert source=192.0.2.41 e
 {"timestamp":"2026-09-27T00:13:20.000Z","alertId":"wi-02","action":"block","sourceAddress":"203.0.113.10","expiresAt":"2026-09-27T00:43:20.000Z","patternId":"script-tag","outcome":"deny_candidate"}
 {"timestamp":"2026-09-27T01:18:33.000Z","alertId":"wi-05","action":"block","sourceAddress":"203.0.113.18","expiresAt":"2026-09-27T01:48:33.000Z","patternId":"sql-injection","outcome":"deny_candidate"}
 {"timestamp":"2026-09-27T05:26:02.000Z","alertId":"wi-08","action":"block","sourceAddress":"203.0.113.22","expiresAt":"2026-09-27T05:56:02.000Z","patternId":"sql-injection","outcome":"deny_candidate"}
+{"timestamp":"2026-09-27T00:16:04.000Z","alertId":"wi-03","action":"block","sourceAddress":"198.51.100.15","expiresAt":"2026-09-27T00:46:04.000Z","patternId":null,"outcome":"skipped_missing_pattern_evidence"}
+{"timestamp":"2026-09-27T01:18:33.000Z","alertId":"wi-05","action":"block","sourceAddress":"203.0.113.18","expiresAt":"2026-09-27T01:48:33.000Z","patternId":null,"outcome":"skipped_missing_pattern_evidence"}
+{"timestamp":"2026-09-27T02:07:08.000Z","alertId":"wi-06","action":"block","sourceAddress":"198.51.100.18","expiresAt":"2026-09-27T02:37:08.000Z","patternId":null,"outcome":"skipped_missing_pattern_evidence"}
+{"timestamp":"2026-09-27T04:04:19.000Z","alertId":"wi-07","action":"block","sourceAddress":"198.51.100.15","expiresAt":"2026-09-27T04:34:19.000Z","patternId":null,"outcome":"skipped_missing_pattern_evidence"}
+{"timestamp":"2026-09-27T00:36:40.000Z","alertId":"wi-10","action":"alert","sourceAddress":"198.51.100.40","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T01:11:06.000Z","alertId":"wi-11","action":"alert","sourceAddress":"203.0.113.41","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T02:20:09.000Z","alertId":"wi-13","action":"alert","sourceAddress":"198.51.100.41","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T03:08:27.000Z","alertId":"wi-14","action":"alert","sourceAddress":"203.0.113.42","expiresAt":null,"patternId":null,"outcome":"alert_only"}
