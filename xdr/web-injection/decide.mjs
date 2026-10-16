@@ -191,16 +191,6 @@ function getValidSource(alert) {
   return '';
 }
 
-function getRepeatCount(alert) {
-  const value = alert?.data?.count ?? alert?.count;
-  if (typeof value === 'number') {
-    return Number.isSafeInteger(value) && value > 0 ? value : 0;
-  }
-  if (typeof value !== 'string' || !/^\d{1,9}$/.test(value)) return 0;
-  const count = Number(value);
-  return Number.isSafeInteger(count) && count > 0 ? count : 0;
-}
-
 function result(action, confidence, reason) {
   return { action, confidence, reason: String(reason).replace(/[\r\n]+/g, ' ').slice(0, 240) };
 }
@@ -223,8 +213,14 @@ function hasValidCorrelation(alert, patternId, source) {
   const evidence = alert?.correlationEvidence;
   if (!source || !evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return false;
 
-  if (Object.keys(evidence).sort().join(',') !== 'alertIds,patternId,sourceAddress') return false;
-  if (evidence.patternId !== patternId || typeof evidence.sourceAddress !== 'string') return false;
+  const keys = Object.keys(evidence).sort().join(',');
+  const hasPatternId = Object.hasOwn(evidence, 'patternId');
+  if (
+    keys !== 'alertIds,sourceAddress'
+    && keys !== 'alertIds,patternId,sourceAddress'
+  ) return false;
+  if (hasPatternId && evidence.patternId !== patternId) return false;
+  if (typeof evidence.sourceAddress !== 'string') return false;
 
   const evidenceSource = evidence.sourceAddress.replace(/^(?:ipv4|ipv6):/, '');
   if (normalizeSource(evidenceSource) !== source) return false;
@@ -275,14 +271,6 @@ export function decide(alert) {
   if (hasValidCorrelation(alert, patternId, source)) {
     const confidence = 0.92;
     return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인`);
-  }
-
-  // The standalone judge evaluates one alert at a time, so it cannot correlate
-  // sibling alerts. A valid source and the alert's own repeat count can still
-  // corroborate repetition, but only after a clear request pattern was matched.
-  if (source && getRepeatCount(alert) >= 2) {
-    const confidence = 0.92;
-    return result(actionForConfidence(confidence), confidence, `${patternId}: 유효한 출발지에서 명확한 주입 반복 횟수 확인`);
   }
 
   const confidence = 0.68;
