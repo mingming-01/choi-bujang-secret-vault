@@ -164,10 +164,20 @@ function parseIpv6(value) {
 
 function normalizeSource(value) {
   if (typeof value !== 'string') return '';
-  const source = value.trim();
+  let source = value.trim();
+  let family = '';
+  const prefix = source.match(/^(ipv4|ipv6):/i);
+  if (prefix) {
+    family = prefix[1].toLowerCase();
+    source = source.slice(prefix[0].length);
+  }
   if (!source || /[\s/]/.test(source)) return '';
   const ipv4 = parseIpv4(source);
-  if (ipv4) return `ipv4:${ipv4.join('.')}`;
+  if (ipv4) {
+    if (family && family !== 'ipv4') return '';
+    return `ipv4:${ipv4.join('.')}`;
+  }
+  if (family === 'ipv4') return '';
   const ipv6 = parseIpv6(source);
   if (!ipv6) return '';
   return `ipv6:${ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':')}`;
@@ -179,6 +189,16 @@ function getValidSource(alert) {
     if (normalized) return normalized;
   }
   return '';
+}
+
+function getRepeatCount(alert) {
+  const value = alert?.data?.count ?? alert?.count;
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value > 0 ? value : 0;
+  }
+  if (typeof value !== 'string' || !/^\d{1,9}$/.test(value)) return 0;
+  const count = Number(value);
+  return Number.isSafeInteger(count) && count > 0 ? count : 0;
 }
 
 function result(action, confidence, reason) {
@@ -257,6 +277,14 @@ export function decide(alert) {
     return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인`);
   }
 
+  // The standalone judge evaluates one alert at a time, so it cannot correlate
+  // sibling alerts. A valid source and the alert's own repeat count can still
+  // corroborate repetition, but only after a clear request pattern was matched.
+  if (source && getRepeatCount(alert) >= 2) {
+    const confidence = 0.92;
+    return result(actionForConfidence(confidence), confidence, `${patternId}: 유효한 출발지에서 명확한 주입 반복 횟수 확인`);
+  }
+
   const confidence = 0.68;
-  return result(actionForConfidence(confidence), confidence, `${patternId}: 명확한 공격 패턴은 확인됐지만 동일 유형 반복 근거가 부족함`);
+  return result(actionForConfidence(confidence), confidence, `${patternId}: 명확한 공격 패턴은 확인됐지만 반복 근거가 부족함`);
 }
