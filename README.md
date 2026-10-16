@@ -289,3 +289,11 @@ node --test test/device-approval.test.mjs test/war-room.test.mjs test/war-room-e
 - 브라우저에서 API 점검 버튼을 누른 결과가 없는 시험은 미실행입니다. 서버 응답을 받지 못한 요청은 미검증으로 남기며, 서버 로그나 HTTP 결과가 없으면 요청 성공을 추정하지 않습니다.
 - 1~11단계의 전체 회귀 시험, 배포 환경의 정상 사용자 요청과 거부 요청, 41종 총공세, 관리자 기기 승인, 실제 백업 복구 및 공식 심판 통과는 실제로 수행하고 근거를 확보하기 전까지 미확인입니다.
 - 저장점 생성 전 `aleph.config.json`의 `step`이 `12`인지 확인합니다. README 기록, 커밋 및 제출 JSON의 커밋 해시는 실제 생성 결과로 대조합니다.
+
+--
+## 보너스 XDR-02: 웹 주입 경보
+
+- `xdr/web-injection/read-alerts.mjs`는 확인용 요약만 출력하고, `decide.mjs`는 요청 인자 패턴만 판정합니다.
+- 실행기는 주소가 같은 서로 다른 유효 경보 ID의 명확한 단일 주입들을 반복 근거로 묶습니다. 패턴이 겹치는 경보는 이 근거 집계에서 제외합니다.
+- `respond.mjs`는 차단 후보와 만료 시각을 기록하고 `xdr/alerts.log`에 결과를 남깁니다. 후보 규칙은 기존 ZTNA 규칙에 적용되지 않습니다.
+- 확인 및 결과 갱신: `npm run xdr:run -- web-injection`. 상세 경보별 결과는 `xdr/web-injection/result.json`에서 확인합니다.

@@ -254,7 +254,7 @@ export function decide(alert) {
   const patternId = patterns[0];
   if (hasValidCorrelation(alert, patternId, source)) {
     const confidence = 0.92;
-    return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인`);
+    return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인`);
   }
 
   const confidence = 0.68;

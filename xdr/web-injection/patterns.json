@@ -8,48 +8,58 @@
       "name": "SQL 주입",
       "source": "\\bunion\\s+(?:all\\s+)?select\\b|\\bselect\\s+[\\w`'\u0022*.,()+%\\-\\s]{1,100}\\s+from\\s+[\\w`\u0022.]+|(?:\\bor\\b|\\band\\b)\\s+['\u0022]?[\\w-]+['\u0022]?\\s*=\\s*['\u0022]?[\\w-]+['\u0022]?|['\u0022]\\s*(?:or|and)\\b|--(?:\\s|$)|/\\*",
       "flags": "i",
-      "rationale": "실제 요청의 SQL 주입 형태만 탐지하며 설명·count·표식은 사용하지 않습니다."
+      "rationale": "MITRE ATT&CK T1190의 공개 앱 악용 맥락에 맞춰 실제 요청 인자의 SQL 주입 구문만 탐지하며 설명·count·표식은 사용하지 않습니다."
     },
     {
       "id": "script-tag",
       "name": "스크립트 태그",
       "source": "<\\s*\\/?\\s*script\\b[^>]*>",
       "flags": "i",
-      "rationale": "실제 요청의 여는 또는 닫는 script 태그만 탐지합니다."
+      "rationale": "MITRE ATT&CK T1190의 공개 앱 악용 맥락에 맞춰 실제 요청 인자의 여는 또는 닫는 script 태그만 탐지합니다."
     },
     {
       "id": "path-traversal",
       "name": "반복 경로 순회",
       "source": "(?:\\.\\.[/\\\\]){2,}",
       "flags": "i",
-      "rationale": "실제 요청의 연속된 두 번 이상 상위 경로 이동만 탐지합니다."
+      "rationale": "MITRE ATT&CK T1190의 공개 앱 악용 맥락에 맞춰 실제 요청 인자의 연속된 두 번 이상 상위 경로 이동만 탐지합니다."
     }
   ],
   "ambiguousPatterns": [
     {
       "id": "partial-sql",
+      "name": "불완전한 SQL 구문",
       "source": "\\bunion\\s+(?:all\\s+)?$|\\bselect\\s+(?:\\*|[\\w`'\u0022]+(?:\\s*,\\s*[\\w`'\u0022]+)*)\\s*$",
-      "flags": "i"
+      "flags": "i",
+      "rationale": "MITRE ATT&CK T1190 관점에서 요청 인자의 미완성 SQL 형태는 주입 여부를 검토할 약한 신호이며 차단 근거로 쓰지 않습니다."
     },
     {
       "id": "partial-script-tag",
+      "name": "불완전한 스크립트 태그",
       "source": "<\\s*\\/?\\s*script\\b(?![^>]*>)",
-      "flags": "i"
+      "flags": "i",
+      "rationale": "MITRE ATT&CK T1190 관점에서 요청 인자의 미완성 script 태그는 삽입 시도를 검토할 약한 신호이며 차단 근거로 쓰지 않습니다."
     },
     {
       "id": "single-traversal-segment",
+      "name": "단일 상위 경로 이동",
       "source": "(?:\\.\\.[/\\\\])",
-      "flags": "i"
+      "flags": "i",
+      "rationale": "MITRE ATT&CK T1190 관점에서 한 번의 ../ 표기는 반복 경로 순회가 확인되지 않은 검토 신호이며 차단 근거로 쓰지 않습니다."
     },
     {
       "id": "isolated-quote",
+      "name": "고립된 따옴표",
       "source": "['\u0022](?=$|[&#\\s])|(?<=[?&=])['\u0022]",
-      "flags": "i"
+      "flags": "i",
+      "rationale": "요청 인자의 따옴표 하나만으로는 SQL 주입을 입증하지 못하므로 검토 신호로만 분류합니다."
     },
     {
       "id": "command-separator",
+      "name": "명령 구분자와 명령어",
       "source": "(?:;|&&|\\|\\|)\\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\\b",
-      "flags": "i"
+      "flags": "i",
+      "rationale": "요청 인자에서 구분자 뒤에 명령어가 이어지는 형태는 의심 신호로 알리되 단독 차단 근거로 쓰지 않습니다."
     }
   ],
   "decisionPolicy": {

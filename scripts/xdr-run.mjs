@@ -175,8 +175,9 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
       await readFile(join(root, 'xdr', moduleKey, 'patterns.json'), 'utf8'),
     ));
   }
-  // Correlate distinct alert IDs by normalized source AND exact configured pattern.
-  // Only alerts with one actual request pattern and a valid, unique ID participate.
+  // Correlate distinct, valid alert IDs by normalized source. Only alerts with
+  // exactly one clear request pattern participate, so ambiguous overlaps cannot
+  // provide repetition evidence for an otherwise clear alert.
   const correlationByAlert = new Map();
   if (moduleKey === 'web-injection') {
     const observations = [];
@@ -191,7 +192,7 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
       const evidence = getWebInjectionEvidence(alert, webInjectionConfig);
       if (isValidAlertId(alertId) && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length === 1) {
         const patternId = evidence.patterns[0];
-        const key = `${evidence.sourceAddress}\u0000${patternId}`;
+        const key = evidence.sourceAddress;
         observations.push({ alert, alertId, sourceAddress: evidence.sourceAddress, patternId, key });
         if (!groups.has(key)) groups.set(key, new Set());
         groups.get(key).add(alertId);
@@ -202,6 +203,8 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
       if (distinctIds.length >= 2) {
         correlationByAlert.set(observation.alert, {
           sourceAddress: observation.sourceAddress,
+          // The current alert's pattern is checked by decide; peer alerts may
+          // show other clear injection types from the same source.
           patternId: observation.patternId,
           alertIds: distinctIds,
         });

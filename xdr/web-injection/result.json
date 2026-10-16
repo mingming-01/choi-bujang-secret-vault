@@ -6,25 +6,25 @@
       "alertId": "wi-01",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
+      "reason": "sql-injection: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인"
     },
     {
       "alertId": "wi-02",
-      "action": "alert",
-      "confidence": 0.68,
-      "reason": "script-tag: 명확한 공격 패턴은 확인됐지만 동일 유형 반복 근거가 부족함"
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "script-tag: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인"
     },
     {
       "alertId": "wi-03",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
+      "reason": "path-traversal: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인"
     },
     {
       "alertId": "wi-04",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
+      "reason": "sql-injection: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인"
     },
     {
       "alertId": "wi-05",
@@ -42,7 +42,7 @@
       "alertId": "wi-07",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
+      "reason": "path-traversal: 같은 출처에서 서로 다른 경보 ID의 명확한 주입 반복 근거 확인"
     },
     {
       "alertId": "wi-08",
@@ -160,8 +160,8 @@
     }
   ],
   "counts": {
-    "block": 4,
-    "alert": 9,
+    "block": 5,
+    "alert": 8,
     "record": 13
   },
   "response": {
@@ -171,6 +171,12 @@
         "source": "203.0.113.10",
         "expiresAt": "2026-09-27T00:43:01.000Z",
         "sourceAlert": "wi-01"
+      },
+      {
+        "action": "deny",
+        "source": "203.0.113.10",
+        "expiresAt": "2026-09-27T00:43:20.000Z",
+        "sourceAlert": "wi-02"
       },
       {
         "action": "deny",
@@ -191,7 +197,7 @@
         "sourceAlert": "wi-07"
       }
     ],
-    "blockedCandidates": 4,
+    "blockedCandidates": 5,
     "skippedInvalidTimestamp": 0,
     "appliedToZtna": false
   }
