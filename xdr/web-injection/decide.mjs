@@ -11,6 +11,7 @@ const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
   { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
+const OUT_OF_SCOPE_AMBIGUOUS_PATTERN_IDS = new Set(['isolated-quote', 'command-separator']);
 function compileDefinitions(definitions) {
   if (!Array.isArray(definitions)) return [];
   return definitions.flatMap((definition) => {
@@ -190,7 +191,8 @@ export function decide(alert) {
   const requestText = getRequestText(alert, settings);
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
-  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
+  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns)
+    .filter((id) => !OUT_OF_SCOPE_AMBIGUOUS_PATTERN_IDS.has(id));
 
   if (patterns.length > 1) {
     const repeated = hasRepeatedCountEvidence(alert, source)
@@ -212,7 +214,9 @@ export function decide(alert) {
   }
 
   if (patterns.length === 1) {
-    if (hasValidCorrelation(alert, patterns[0], source)) {
+    const repeated = hasRepeatedCountEvidence(alert, source)
+      || hasValidCorrelation(alert, patterns[0], source);
+    if (repeated) {
       return result(
         'block',
         0.92,
