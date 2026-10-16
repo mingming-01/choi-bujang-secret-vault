@@ -7,6 +7,9 @@ const DEFAULT_PATTERNS = [
 const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'partial-sql', regex: /\bunion\s+(?:all\s+)?$|\bselect\s+(?:\*|[\w`"']+(?:\s*,\s*[\w`"']+)*)\s*$/i },
   { id: 'partial-script-tag', regex: /<\s*\/?\s*script\b(?![^>]*>)/i },
+  { id: 'single-traversal-segment', regex: /(?:\.\.[/\\])/i },
+  { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
+  { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
 
 function compileDefinitions(definitions) {
@@ -39,7 +42,7 @@ function getSettings(alert) {
       ? Math.max(0, Math.min(config.decodePasses, 4))
       : 2,
     patterns: compileDefinitions(config.patterns),
-    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns).filter(({ id }) => !['isolated-quote', 'command-separator', 'single-traversal-segment'].includes(id)),
+    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns),
   };
 }
 
@@ -154,7 +157,7 @@ function hasValidCorrelation(alert, patternName, source) {
   if (keys.length !== 3 || keys.join(',') !== 'alertIds,patternId,sourceAddress') return false;
   if (
     correlation.patternId !== patternName
-    || correlation.sourceAddress !== source
+    || normalizeSource(typeof correlation.sourceAddress === 'string' ? correlation.sourceAddress.replace(/^(?:ipv4|ipv6):/, '') : '') !== source
     || !Array.isArray(correlation.alertIds)
     || correlation.alertIds.length < 2
     || !correlation.alertIds.every(isValidAlertId)
