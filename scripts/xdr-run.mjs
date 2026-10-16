@@ -149,8 +149,9 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     ));
   }
 
-  // Correlate distinct alert IDs by normalized source + exactly one actual
-  // configured request pattern. No fixture-provided claims enter this map.
+  // Correlate distinct alert IDs by normalized source. Each contributing alert
+  // must match exactly one actual configured request pattern; mixed-pattern
+  // alerts are excluded. No fixture-provided claims enter this map.
   const correlationByAlert = new Map();
   if (moduleKey === 'web-injection') {
     const observations = [];
@@ -163,17 +164,24 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     for (const alert of fixture.alerts) {
       const alertId = typeof alert?.id === 'string' ? alert.id.trim() : '';
       const evidence = getWebInjectionEvidence(alert, webInjectionConfig);
-      if (alertId && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length > 0) {
-        for (const patternId of evidence.patterns) {
-          const key = `${evidence.sourceAddress}\u0000${patternId}`;
-          observations.push({ alert, sourceAddress: evidence.sourceAddress, patternId, key });
-          if (!groups.has(key)) groups.set(key, new Map());
-          groups.get(key).set(alertId, evidence);
-        }
+      if (
+        alertId
+        && alertIdCounts.get(alertId) === 1
+        && evidence.sourceAddress
+        && evidence.patterns.length === 1
+      ) {
+        const observation = {
+          alert,
+          sourceAddress: evidence.sourceAddress,
+          patternId: evidence.patterns[0],
+        };
+        observations.push(observation);
+        if (!groups.has(evidence.sourceAddress)) groups.set(evidence.sourceAddress, new Map());
+        groups.get(evidence.sourceAddress).set(alertId, observation);
       }
     }
     for (const observation of observations) {
-      const distinctIds = [...groups.get(observation.key).keys()];
+      const distinctIds = [...groups.get(observation.sourceAddress).keys()];
       if (distinctIds.length >= 2 && !correlationByAlert.has(observation.alert)) {
         correlationByAlert.set(observation.alert, {
           sourceAddress: observation.sourceAddress,
@@ -238,7 +246,7 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
         skippedInvalidTimestamp: Number.isInteger(response?.skippedInvalidTimestamp) ? response.skippedInvalidTimestamp : 0,
         skippedInvalidSource: Number.isInteger(response?.skippedInvalidSource) ? response.skippedInvalidSource : 0,
         // api/notes.js checks these active, expiring candidates before normal authorization.
-        appliedToZtna: true,
+        appliedToZtna: Array.isArray(response?.rules) && response.rules.length > 0,
       };
       await writeFile(join(outDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
     }

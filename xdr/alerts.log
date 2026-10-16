@@ -80,3 +80,6 @@ timestamp=2026-09-27T10:44:18+09:00 alert=wi-12 action=alert source=192.0.2.41 e
 {"timestamp":"2026-09-27T04:15:03.000Z","alertId":"wi-15","action":"alert","sourceAddress":"192.0.2.42","expiresAt":null,"patternId":null,"outcome":"alert_only"}
 {"timestamp":"2026-09-27T05:09:50.000Z","alertId":"wi-16","action":"alert","sourceAddress":"198.51.100.42","expiresAt":null,"patternId":null,"outcome":"alert_only"}
 {"timestamp":"2026-09-27T06:18:12.000Z","alertId":"wi-17","action":"alert","sourceAddress":"203.0.113.43","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T00:13:20.000Z","alertId":"wi-02","action":"block","sourceAddress":"203.0.113.10","expiresAt":"2026-09-27T00:43:20.000Z","patternId":"script-tag","outcome":"deny_candidate"}
+{"timestamp":"2026-09-27T01:18:33.000Z","alertId":"wi-05","action":"block","sourceAddress":"203.0.113.18","expiresAt":"2026-09-27T01:48:33.000Z","patternId":"sql-injection","outcome":"deny_candidate"}
+{"timestamp":"2026-09-27T05:26:02.000Z","alertId":"wi-08","action":"block","sourceAddress":"203.0.113.22","expiresAt":"2026-09-27T05:56:02.000Z","patternId":"sql-injection","outcome":"deny_candidate"}

@@ -24,6 +24,7 @@ try {
       { id: 'same-a', data: { srcip: '203.0.113.200', url: '/search?q=union+select+name+from+users', count: '1' } },
       { id: 'same-b', data: { srcip: '203.0.113.200', url: '/search?q=union+select+email+from+accounts', count: '1' } },
       { id: 'different-pattern', data: { srcip: '203.0.113.200', url: '/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E', count: '1' } },
+      { id: 'overlapping-patterns', data: { srcip: '203.0.113.200', url: '/search?q=union+select+name+from+users+%3Cscript%3Ealert(1)%3C%2Fscript%3E', count: '1' } },
       { id: 'different-source', data: { srcip: '198.51.100.200', url: '/search?q=union+select+name+from+users', count: '1' } },
       { id: 'duplicate-id', data: { srcip: '203.0.113.201', url: '/search?q=union+select+name+from+users', count: '1' } },
       { id: 'duplicate-id', data: { srcip: '203.0.113.201', url: '/search?q=union+select+email+from+accounts', count: '1' } },
@@ -50,7 +51,8 @@ try {
   const actualById = new Map(result.decisions.map((decision) => [decision.alertId, decision]));
   assert.equal(actualById.get('same-a')?.action, 'block', 'separate same-source SQL alerts correlate');
   assert.equal(actualById.get('same-b')?.action, 'block', 'same-source SQL peer is also blockable');
-  assert.equal(actualById.get('different-pattern')?.action, 'alert', 'different patterns do not share evidence');
+  assert.equal(actualById.get('different-pattern')?.action, 'block', 'same-source alerts with different clear patterns share repetition evidence');
+  assert.equal(actualById.get('overlapping-patterns')?.action, 'alert', 'an alert matching multiple clear patterns is excluded from repetition groups');
   assert.equal(actualById.get('different-source')?.action, 'alert', 'different sources do not share evidence');
   assert.equal(result.decisions.filter((decision) => decision.alertId === 'duplicate-id').every((decision) => decision.action === 'alert'), true, 'duplicate IDs cannot establish distinct events');
   assert.equal(actualById.get('invalid-ip-a')?.action, 'alert', 'invalid source IPs cannot correlate');
@@ -66,18 +68,29 @@ try {
   for (const id of ['ambiguous-partial-sql', 'ambiguous-bare-script', 'ambiguous-single-traversal', 'ambiguous-command-separator', 'ambiguous-isolated-quote']) {
     assert.equal(actualById.get(id)?.action, 'alert', `${id} is a request-level ambiguous signal`);
   }
-  assert.deepEqual(result.counts, { block: 4, alert: 11, record: 6 });
+  assert.deepEqual(result.counts, { block: 5, alert: 11, record: 6 });
   assert.equal(result.response?.candidateRules.length, 0, 'missing timestamps prevent response candidates without changing decisions');
-  assert.equal(result.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA');
-
+  assert.equal(result.response?.appliedToZtna, false, 'candidate rules are not applied to ZTNA when no valid response candidates exist');
   const responderRoot = join(temporaryRoot, 'responder-check');
   await mkdir(join(responderRoot, 'xdr'), { recursive: true });
   const responderResult = await respond({
     root: responderRoot,
     decisions: [
-      { alertId: 'source-address-fallback', action: 'block' },
-      { alertId: 'source-fallback', action: 'block' },
-      { alertId: 'invalid-source', action: 'block' },
+      {
+        alertId: 'source-address-fallback',
+        action: 'block',
+        reason: 'sql-injection: test evidence',
+      },
+      {
+        alertId: 'source-fallback',
+        action: 'block',
+        reason: 'sql-injection: test evidence',
+      },
+      {
+        alertId: 'invalid-source',
+        action: 'block',
+        reason: 'sql-injection: test evidence',
+      },
     ],
     alerts: [
       {
@@ -104,9 +117,21 @@ try {
   ], 'responder follows the decider/runner source fallback and canonical IP validation');
   assert.equal(responderResult.blocked, 2);
   const responderLog = await readFile(join(responderRoot, 'xdr', 'alerts.log'), 'utf8');
-  assert.match(responderLog, /alert=invalid-source action=block_skipped_invalid_source/);
+  const responderEvents = responderLog
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
 
-  console.log('실행기 반복 집계 확인: 동일 출처·패턴의 고유 경보 ID만 차단 근거이며 marker/설명/count는 공격 신호가 아님');
+  assert.ok(
+    responderEvents.some((event) =>
+      event.alertId === 'invalid-source'
+      && event.action === 'block'
+      && event.outcome === 'skipped_invalid_source'
+    ),
+    'invalid source is logged and skipped'
+  );
+
+  console.log('실행기 반복 집계 확인: 동일 출처의 단일 강한 패턴 경보에서 고유 ID 반복을 차단 근거로 사용하며 marker/설명/count는 공격 신호가 아님');
   for (const decision of result.decisions) console.log(`${decision.alertId} | ${decision.action}`);
   console.log(`집계: block ${result.counts.block} / alert ${result.counts.alert} / record ${result.counts.record}`);
   console.log('응답기 확인: 유효한 대체 출처 필드에서 후보 생성, 잘못된 IP 출처는 거부');
