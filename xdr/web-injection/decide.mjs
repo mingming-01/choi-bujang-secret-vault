@@ -17,7 +17,8 @@ function compileDefinitions(definitions) {
   return definitions.flatMap((definition) => {
     if (!definition || typeof definition.id !== 'string' || typeof definition.source !== 'string') return [];
     try {
-      return [{ id: definition.id, regex: new RegExp(definition.source, typeof definition.flags === 'string' ? definition.flags.replace(/[gy]/g, '') : '') }];
+      const flags = typeof definition.flags === 'string' ? definition.flags.replace(/[gy]/g, '') : '';
+      return [{ id: definition.id, regex: new RegExp(definition.source, flags) }];
     } catch {
       return [];
     }
@@ -54,8 +55,8 @@ function getPathValue(value, path) {
   return path.split('.').reduce((current, key) => current?.[key], value);
 }
 
-function decodeText(value, decodePasses) {
-  let text = String(value ?? '').replace(/\+/g, ' ');
+function decodeParameterValue(value, decodePasses) {
+  let text = value.replace(/\+/g, ' ');
   for (let i = 0; i < decodePasses; i += 1) {
     try {
       const decoded = decodeURIComponent(text);
@@ -68,16 +69,44 @@ function decodeText(value, decodePasses) {
   return text;
 }
 
-function getRequestText(alert, settings) {
+function getParameterValues(value, decodePasses) {
+  if (typeof value !== 'string') return [];
+
+  // Accept either a URL/request target or an HTTP request line. Only the query
+  // portion is inspected; the path, parameter names and protocol are excluded.
+  const requestLine = value.match(/^[A-Z]+\s+(\S+)\s+HTTP\/\d(?:\.\d)?$/i);
+  const target = requestLine ? requestLine[1] : value;
+  const questionMark = target.indexOf('?');
+  if (questionMark < 0) return [];
+
+  let query = target.slice(questionMark + 1);
+  const fragment = query.indexOf('#');
+  if (fragment >= 0) query = query.slice(0, fragment);
+  if (!query) return [];
+
+  return query.split('&').map((parameter) => {
+    const equals = parameter.indexOf('=');
+    const rawValue = equals < 0 ? '' : parameter.slice(equals + 1);
+    // Split parameters before decoding so an encoded %26 remains within its
+    // original value rather than becoming a new parameter boundary.
+    return decodeParameterValue(rawValue, decodePasses);
+  });
+}
+
+function getRequestValues(alert, settings) {
   return settings.requestFields
     .map((field) => getPathValue(alert, field))
     .filter((value) => typeof value === 'string')
-    .map((value) => decodeText(value, settings.decodePasses))
-    .join(' ');
+    .flatMap((value) => getParameterValues(value, settings.decodePasses));
 }
 
-function matchingIds(text, patterns) {
-  return patterns.filter(({ regex }) => regex.test(text)).map(({ id }) => id);
+function matchingIds(values, patterns) {
+  return patterns
+    .filter(({ regex }) => values.some((value) => {
+      regex.lastIndex = 0;
+      return regex.test(value);
+    }))
+    .map(({ id }) => id);
 }
 
 function parseIpv4(value) {
@@ -146,6 +175,12 @@ function result(action, confidence, reason) {
   return { action, confidence, reason: String(reason).replace(/[\r\n]+/g, ' ').slice(0, 240) };
 }
 
+function actionForConfidence(confidence) {
+  if (confidence >= 0.85) return 'block';
+  if (confidence >= 0.5) return 'alert';
+  return 'record';
+}
+
 function isValidAlertId(value) {
   return typeof value === 'string'
     && value.length > 0
@@ -154,87 +189,64 @@ function isValidAlertId(value) {
     && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
-function hasRepeatedCountEvidence(alert, source) {
-  if (!source) return false;
-
-  const rawCount = alert?.data?.count;
-  const count = typeof rawCount === 'number'
-    ? rawCount
-    : typeof rawCount === 'string' && /^\d+$/.test(rawCount.trim())
-      ? Number(rawCount.trim())
-      : NaN;
-
-  return Number.isSafeInteger(count) && count >= 2;
-}
-
-function hasValidCorrelation(alert, patternName, source) {
+function hasValidCorrelation(alert, patternId, source) {
   const evidence = alert?.correlationEvidence;
+  if (!source || !evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return false;
 
-  if (!source || !evidence || typeof evidence !== 'object' || Array.isArray(evidence)) {
-    return false;
-  }
+  if (Object.keys(evidence).sort().join(',') !== 'alertIds,patternId,sourceAddress') return false;
+  if (evidence.patternId !== patternId || typeof evidence.sourceAddress !== 'string') return false;
 
-  const keys = Object.keys(evidence).sort().join(',');
-  const hasPatternId = Object.prototype.hasOwnProperty.call(evidence, 'patternId');
-
-  if (
-    keys !== 'alertIds,sourceAddress'
-    && keys !== 'alertIds,patternId,sourceAddress'
-  ) {
-    return false;
-  }
-
-  if (hasPatternId && evidence.patternId !== patternName) return false;
-
-  let evidenceSource = evidence.sourceAddress;
-  if (typeof evidenceSource !== 'string') return false;
-  evidenceSource = evidenceSource.replace(/^(?:ipv4|ipv6):/, '');
-
+  const evidenceSource = evidence.sourceAddress.replace(/^(?:ipv4|ipv6):/, '');
   if (normalizeSource(evidenceSource) !== source) return false;
 
   const ids = evidence.alertIds;
   if (
     !Array.isArray(ids)
-    || ids.length === 0
+    || ids.length < 2
     || !ids.every(isValidAlertId)
     || new Set(ids).size !== ids.length
     || !isValidAlertId(alert?.id)
+    || !ids.includes(alert.id)
   ) {
     return false;
   }
 
-  return ids.some((id) => id !== alert.id);
+  return true;
 }
 
-// Pure decision: request evidence determines severity; only runner-supplied,
-// validated distinct-event correlation can elevate a single pattern to block.
+// Pure decision: only query-parameter values are pattern evidence. Repetition
+// is accepted only from the runner's source-and-pattern-specific correlation.
 export function decide(alert) {
   const settings = getSettings(alert);
-  const requestText = getRequestText(alert, settings);
+  const requestValues = getRequestValues(alert, settings);
   const source = getValidSource(alert);
-  const patterns = matchingIds(requestText, settings.patterns);
+  const patterns = matchingIds(requestValues, settings.patterns);
+  const ambiguousPatterns = matchingIds(requestValues, settings.ambiguousPatterns);
+  const relevantAmbiguousPatterns = ambiguousPatterns.filter((id) => !(
+    id === 'single-traversal-segment' && patterns.includes('path-traversal')
+  ));
 
   if (patterns.length > 1) {
-    return result('alert', 0.68, 'ambiguous-pattern-overlap: 여러 공격 유형이 겹침');
+    const confidence = 0.68;
+    return result(actionForConfidence(confidence), confidence, 'ambiguous-pattern-overlap: 여러 공격 유형이 요청 인자에서 겹침');
+  }
+
+  if (relevantAmbiguousPatterns.length > 0) {
+    const confidence = 0.6;
+    return result(actionForConfidence(confidence), confidence, 'ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류');
   }
 
   if (patterns.length === 0) {
-    const ambiguousPatterns = matchingIds(requestText, settings.ambiguousPatterns)
-      .filter((id) => id !== 'isolated-quote' && id !== 'command-separator');
-    if (ambiguousPatterns.length > 0) {
-      return result('alert', 0.6, 'ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류');
-    }
-    return result('record', 0.08, 'normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
+    const confidence = 0.08;
+    return result(actionForConfidence(confidence), confidence, 'normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
   }
 
-  const patternName = patterns[0];
-
-  if (hasValidCorrelation(alert, patternName, source) || hasRepeatedCountEvidence(alert, source)) {
-    const repeatedEvidence = hasValidCorrelation(alert, patternName, source)
-      ? '같은 출처의 서로 다른 경보 ID에서 반복 확인'
-      : `유효한 출처와 명확한 주입 패턴, data.count=${alert?.data?.count} 확인`;
-    return result('block', 0.92, `${patternName}: ${repeatedEvidence}`);
+  const patternId = patterns[0];
+  if (hasValidCorrelation(alert, patternId, source)) {
+    const confidence = 0.92;
+    return result(actionForConfidence(confidence), confidence, `${patternId}: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인`);
   }
 
-  return result('alert', 0.68, `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`);
+  const confidence = 0.68;
+  return result(actionForConfidence(confidence), confidence, `${patternId}: 명확한 공격 패턴은 확인됐지만 동일 유형 반복 근거가 부족함`);
 }

@@ -17,7 +17,7 @@ export function isDecision(value) {
     && typeof value.reason === 'string';
 }
 
-function decodeRequest(value, decodePasses) {
+function decodeParameterValue(value, decodePasses) {
   let decoded = value.replace(/\+/g, ' ');
   for (let pass = 0; pass < decodePasses; pass += 1) {
     try {
@@ -29,6 +29,26 @@ function decodeRequest(value, decodePasses) {
     }
   }
   return decoded;
+}
+
+function getQueryParameterValues(value, decodePasses) {
+  if (typeof value !== 'string') return [];
+  const requestLine = value.match(/^[A-Z]+\s+(\S+)\s+HTTP\/\d(?:\.\d)?$/i);
+  const target = requestLine ? requestLine[1] : value;
+  const questionMark = target.indexOf('?');
+  if (questionMark < 0) return [];
+
+  let query = target.slice(questionMark + 1);
+  const fragment = query.indexOf('#');
+  if (fragment >= 0) query = query.slice(0, fragment);
+  if (!query) return [];
+
+  return query.split('&').map((parameter) => {
+    const equals = parameter.indexOf('=');
+    const rawValue = equals < 0 ? '' : parameter.slice(equals + 1);
+    // Split before decoding so encoded delimiters remain in their original value.
+    return decodeParameterValue(rawValue, decodePasses);
+  });
 }
 
 function parseIpv4(value) {
@@ -96,25 +116,32 @@ function getPathValue(value, path) {
   return path.split('.').reduce((current, key) => current?.[key], value);
 }
 
-// Actual patterns and request-field configuration come from patterns.json;
-// descriptions, marker strings and count fields are deliberately excluded.
+// Only actual request-parameter values can establish configured attack patterns.
 function getWebInjectionEvidence(alert, config) {
   const requestFields = config.requestFields.filter((field) => typeof field === 'string');
-  const requestText = requestFields
+  const requestValues = requestFields
     .map((field) => getPathValue(alert, field))
     .filter((value) => typeof value === 'string')
-    .map((value) => decodeRequest(value, config.decodePasses))
-    .join(' ');
+    .flatMap((value) => getQueryParameterValues(value, config.decodePasses));
   const patterns = config.patterns
     .filter((pattern) => {
       try {
-        return new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, '')).test(requestText);
+        const regex = new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, ''));
+        return requestValues.some((value) => regex.test(value));
       } catch {
         return false;
       }
     })
     .map((pattern) => pattern.id);
   return { sourceAddress: getAlertSource(alert), patterns };
+}
+
+function isValidAlertId(value) {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= 200
+    && value.trim() === value
+    && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
 function validateWebInjectionConfig(config) {
@@ -148,30 +175,30 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
       await readFile(join(root, 'xdr', moduleKey, 'patterns.json'), 'utf8'),
     ));
   }
-  // Correlate distinct alert IDs from the same normalized source.
-  // Each event must match exactly one actual configured request pattern.
+  // Correlate distinct alert IDs by normalized source AND exact configured pattern.
+  // Only alerts with one actual request pattern and a valid, unique ID participate.
   const correlationByAlert = new Map();
   if (moduleKey === 'web-injection') {
     const observations = [];
     const groups = new Map();
     const alertIdCounts = new Map();
     for (const alert of fixture.alerts) {
-      const alertId = typeof alert?.id === 'string' ? alert.id.trim() : '';
-      if (alertId) alertIdCounts.set(alertId, (alertIdCounts.get(alertId) ?? 0) + 1);
+      const alertId = alert?.id;
+      if (isValidAlertId(alertId)) alertIdCounts.set(alertId, (alertIdCounts.get(alertId) ?? 0) + 1);
     }
     for (const alert of fixture.alerts) {
-      const alertId = typeof alert?.id === 'string' ? alert.id.trim() : '';
+      const alertId = alert?.id;
       const evidence = getWebInjectionEvidence(alert, webInjectionConfig);
-      if (alertId && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length === 1) {
+      if (isValidAlertId(alertId) && alertIdCounts.get(alertId) === 1 && evidence.sourceAddress && evidence.patterns.length === 1) {
         const patternId = evidence.patterns[0];
-        const key = evidence.sourceAddress;
-        observations.push({ alert, sourceAddress: evidence.sourceAddress, patternId, key });
-        if (!groups.has(key)) groups.set(key, new Map());
-        groups.get(key).set(alertId, evidence);
+        const key = `${evidence.sourceAddress}\u0000${patternId}`;
+        observations.push({ alert, alertId, sourceAddress: evidence.sourceAddress, patternId, key });
+        if (!groups.has(key)) groups.set(key, new Set());
+        groups.get(key).add(alertId);
       }
     }
     for (const observation of observations) {
-      const distinctIds = [...groups.get(observation.key).keys()];
+      const distinctIds = [...groups.get(observation.key)];
       if (distinctIds.length >= 2) {
         correlationByAlert.set(observation.alert, {
           sourceAddress: observation.sourceAddress,

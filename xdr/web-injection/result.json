@@ -6,162 +6,162 @@
       "alertId": "wi-01",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨"
+      "reason": "sql-injection: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
     },
     {
       "alertId": "wi-02",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "script-tag: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨"
+      "action": "alert",
+      "confidence": 0.68,
+      "reason": "script-tag: 명확한 공격 패턴은 확인됐지만 동일 유형 반복 근거가 부족함"
     },
     {
       "alertId": "wi-03",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨"
+      "reason": "path-traversal: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
     },
     {
       "alertId": "wi-04",
       "action": "block",
       "confidence": 0.92,
-      "reason": "sql-injection: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨"
+      "reason": "sql-injection: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
     },
     {
       "alertId": "wi-05",
       "action": "alert",
       "confidence": 0.68,
-      "reason": "ambiguous-pattern-overlap: 여러 공격 유형이 겹침"
+      "reason": "ambiguous-pattern-overlap: 여러 공격 유형이 요청 인자에서 겹침"
     },
     {
       "alertId": "wi-06",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
     },
     {
       "alertId": "wi-07",
       "action": "block",
       "confidence": 0.92,
-      "reason": "path-traversal: 유효한 출처에서 같은 주소의 서로 다른 경보 ID에 명확한 주입이 반복 확인됨"
+      "reason": "path-traversal: 같은 출처·같은 공격 유형에서 서로 다른 경보 ID의 반복 근거 확인"
     },
     {
       "alertId": "wi-08",
       "action": "alert",
       "confidence": 0.68,
-      "reason": "sql-injection: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함"
+      "reason": "sql-injection: 명확한 공격 패턴은 확인됐지만 동일 유형 반복 근거가 부족함"
     },
     {
       "alertId": "wi-09",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
     },
     {
       "alertId": "wi-10",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-11",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-12",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
     },
     {
       "alertId": "wi-13",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-14",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-15",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
     },
     {
       "alertId": "wi-16",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
     },
     {
       "alertId": "wi-17",
       "action": "alert",
       "confidence": 0.6,
-      "reason": "ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
+      "reason": "ambiguous-request-signal: 요청 인자에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류"
     },
     {
       "alertId": "wi-18",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-19",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-20",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-21",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-22",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-23",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-24",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-25",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     },
     {
       "alertId": "wi-26",
       "action": "record",
       "confidence": 0.08,
-      "reason": "normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
+      "reason": "normal-or-unsupported: 요청 인자에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음"
     }
   ],
   "counts": {
-    "block": 5,
-    "alert": 8,
+    "block": 4,
+    "alert": 9,
     "record": 13
   },
   "response": {
@@ -171,12 +171,6 @@
         "source": "203.0.113.10",
         "expiresAt": "2026-09-27T00:43:01.000Z",
         "sourceAlert": "wi-01"
-      },
-      {
-        "action": "deny",
-        "source": "203.0.113.10",
-        "expiresAt": "2026-09-27T00:43:20.000Z",
-        "sourceAlert": "wi-02"
       },
       {
         "action": "deny",
@@ -197,7 +191,7 @@
         "sourceAlert": "wi-07"
       }
     ],
-    "blockedCandidates": 5,
+    "blockedCandidates": 4,
     "skippedInvalidTimestamp": 0,
     "appliedToZtna": false
   }
