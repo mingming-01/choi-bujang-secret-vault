@@ -153,20 +153,24 @@ function isValidAlertId(value) {
 function hasValidCorrelation(alert, patternName, source) {
   const correlation = alert?.correlationEvidence;
   if (!source || !correlation || typeof correlation !== 'object' || Array.isArray(correlation)) return false;
-  const keys = Object.keys(correlation).sort();
-  if (keys.length !== 3 || keys.join(',') !== 'alertIds,patternId,sourceAddress') return false;
+
+  const evidenceSource = typeof correlation.sourceAddress === 'string'
+    ? normalizeSource(correlation.sourceAddress.replace(/^(?:ipv4|ipv6):/, ''))
+    : '';
+  if (!evidenceSource || evidenceSource !== source) return false;
+
+  if (correlation.patternId !== undefined && correlation.patternId !== patternName) return false;
+
+  const ids = correlation.alertIds;
   if (
-    correlation.patternId !== patternName
-    || normalizeSource(typeof correlation.sourceAddress === 'string' ? correlation.sourceAddress.replace(/^(?:ipv4|ipv6):/, '') : '') !== source
-    || !Array.isArray(correlation.alertIds)
-    || correlation.alertIds.length < 2
-    || !correlation.alertIds.every(isValidAlertId)
+    !Array.isArray(ids)
+    || ids.length === 0
+    || !ids.every(isValidAlertId)
+    || new Set(ids).size !== ids.length
+    || !isValidAlertId(alert?.id)
   ) return false;
-  const alertIds = new Set(correlation.alertIds);
-  const alertId = alert?.id;
-  return alertIds.size === correlation.alertIds.length
-    && isValidAlertId(alertId)
-    && alertIds.has(alertId);
+
+  return ids.some((id) => id !== alert.id);
 }
 
 // Pure decision: request evidence determines severity; only runner-supplied,

@@ -176,12 +176,12 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
           patternId: evidence.patterns[0],
         };
         observations.push(observation);
-        if (!groups.has(evidence.sourceAddress)) groups.set(evidence.sourceAddress, new Map());
-        groups.get(evidence.sourceAddress).set(alertId, observation);
+        const groupKey = `${evidence.sourceAddress}\u0000${evidence.patterns[0]}`; if (!groups.has(groupKey)) groups.set(groupKey, new Map());
+        groups.get(groupKey).set(alertId, observation);
       }
     }
     for (const observation of observations) {
-      const distinctIds = [...groups.get(observation.sourceAddress).keys()];
+      const distinctIds = [...groups.get(`${observation.sourceAddress}\u0000${observation.patternId}`).keys()];
       if (distinctIds.length >= 2 && !correlationByAlert.has(observation.alert)) {
         correlationByAlert.set(observation.alert, {
           sourceAddress: observation.sourceAddress,

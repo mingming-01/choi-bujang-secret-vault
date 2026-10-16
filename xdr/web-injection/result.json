@@ -10,9 +10,9 @@
     },
     {
       "alertId": "wi-02",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "script-tag: repeated distinct alert IDs for the same validated source and pattern"
+      "action": "alert",
+      "confidence": 0.68,
+      "reason": "script-tag: clear injection pattern matched; repeated-source evidence required"
     },
     {
       "alertId": "wi-03",
@@ -160,8 +160,8 @@
     }
   ],
   "counts": {
-    "block": 5,
-    "alert": 8,
+    "block": 4,
+    "alert": 9,
     "record": 13
   },
   "response": {
@@ -172,13 +172,6 @@
         "expiresAt": "2026-09-27T00:43:01.000Z",
         "sourceAlert": "wi-01",
         "patternId": "sql-injection"
-      },
-      {
-        "action": "deny",
-        "source": "203.0.113.10",
-        "expiresAt": "2026-09-27T00:43:20.000Z",
-        "sourceAlert": "wi-02",
-        "patternId": "script-tag"
       },
       {
         "action": "deny",
@@ -202,7 +195,7 @@
         "patternId": "path-traversal"
       }
     ],
-    "blockedCandidates": 5,
+    "blockedCandidates": 4,
     "skippedInvalidTimestamp": 0,
     "skippedInvalidSource": 0,
     "appliedToZtna": true
