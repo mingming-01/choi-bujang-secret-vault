@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../src/verify-login.mjs';
 import { verifyDeviceRequest } from '../src/device-approval.mjs';
+import { isTemporarilyDenied } from '../src/temporary-deny.mjs';
 
 const BEARER_TOKEN = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/u;
 
@@ -97,6 +98,10 @@ export default async function handler(request, response) {
   if (!['GET', 'POST'].includes(request.method)) {
     response.setHeader('Allow', 'GET, POST');
     return response.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
+  }
+
+  if (await isTemporarilyDenied(request)) {
+    return response.status(403).json({ error: 'TEMPORARY_SOURCE_DENIED' });
   }
 
   const auth = await authenticatedService(request);

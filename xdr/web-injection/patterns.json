@@ -1,55 +1,79 @@
 {
   "schema": "aleph.xdr.web-injection-patterns.v1",
-  "requestFields": ["data.url", "data.uri", "url", "requestUrl", "request"],
+  "requestFields": [
+    "data.url",
+    "data.uri",
+    "url",
+    "requestUrl",
+    "request"
+  ],
   "decodePasses": 2,
   "patterns": [
     {
       "id": "sql-injection",
-      "name": "SQL 주입",
-      "source": "\\bunion\\s+(?:all\\s+)?select\\b|\\bselect\\s+[\\w`'\u0022*.,()+%\\-\\s]{1,100}\\s+from\\s+[\\w`\u0022.]+|(?:\\bor\\b|\\band\\b)\\s+['\u0022]?[\\w-]+['\u0022]?\\s*=\\s*['\u0022]?[\\w-]+['\u0022]?|['\u0022]\\s*(?:or|and)\\b|--(?:\\s|$)|/\\*",
+      "name": "SQL injection syntax",
+      "source": "\\bunion\\s+(?:all\\s+)?select\\b|\\bselect\\s+[\\w`'\"*.,()+%\\-\\s]{1,100}\\s+from\\s+[\\w`\".]+|(?:\\bor\\b|\\band\\b)\\s+['\"]?[\\w-]+['\"]?\\s*=\\s*['\"]?[\\w-]+['\"]?|['\"]\\s*(?:or|and)\\b|--(?:\\s|$)|/\\*",
       "flags": "i",
-      "rationale": "실제 요청의 SQL 주입 형태만 탐지하며 설명·count·표식은 사용하지 않습니다."
+      "rationale": "The request argument matches SQL syntax patterns used to identify SQL injection attempts; descriptive fields and count markers are not used.",
+      "condition": "SQL query syntax in a configured request argument: UNION SELECT, SELECT ... FROM, a boolean equality clause, a SQL comment marker, or an OR/AND quote form."
     },
     {
       "id": "script-tag",
-      "name": "스크립트 태그",
+      "name": "Script tag injection",
       "source": "<\\s*\\/?\\s*script\\b[^>]*>",
       "flags": "i",
-      "rationale": "실제 요청의 여는 또는 닫는 script 태그만 탐지합니다."
+      "rationale": "The request argument contains a script tag, a direct signal of script injection.",
+      "condition": "A complete opening or closing script tag appears in a configured request argument."
     },
     {
       "id": "path-traversal",
-      "name": "반복 경로 순회",
+      "name": "Repeated path traversal",
       "source": "(?:\\.\\.[/\\\\]){2,}",
       "flags": "i",
-      "rationale": "실제 요청의 연속된 두 번 이상 상위 경로 이동만 탐지합니다."
+      "rationale": "Repeated parent-directory traversal segments are the configured clear path traversal signal.",
+      "condition": "Two or more ../ or ..\\ segments appear consecutively in a configured request argument."
     }
   ],
   "ambiguousPatterns": [
     {
       "id": "partial-sql",
-      "source": "\\bunion\\s+(?:all\\s+)?$|\\bselect\\s+(?:\\*|[\\w`'\u0022]+(?:\\s*,\\s*[\\w`'\u0022]+)*)\\s*$",
-      "flags": "i"
+      "source": "\\bunion\\s+(?:all\\s+)?$|\\bselect\\s+(?:\\*|[\\w`'\"]+(?:\\s*,\\s*[\\w`'\"]+)*)\\s*$",
+      "flags": "i",
+      "name": "Partial SQL syntax",
+      "condition": "A configured SQL keyword sequence is incomplete at the end of the request argument.",
+      "rationale": "A partial SQL construct is an uncertain SQL-injection signal; it is retained as alert-only evidence."
     },
     {
       "id": "partial-script-tag",
       "source": "<\\s*\\/?\\s*script\\b(?![^>]*>)",
-      "flags": "i"
+      "flags": "i",
+      "name": "Incomplete script tag",
+      "condition": "A script tag opener is present without a completed tag.",
+      "rationale": "An incomplete script tag is an uncertain script-injection signal; it is retained as alert-only evidence."
     },
     {
       "id": "single-traversal-segment",
       "source": "(?:\\.\\.[/\\\\])",
-      "flags": "i"
+      "flags": "i",
+      "name": "Single traversal segment",
+      "condition": "One ../ or ..\\ segment appears, without the repeated traversal required by the clear pattern.",
+      "rationale": "A single traversal segment can occur in ordinary paths; repeated traversal is required for the clear pattern."
     },
     {
       "id": "isolated-quote",
-      "source": "['\u0022](?=$|[&#\\s])|(?<=[?&=])['\u0022]",
-      "flags": "i"
+      "source": "['\"](?=$|[&#\\s])|(?<=[?&=])['\"]",
+      "flags": "i",
+      "name": "Isolated quote",
+      "condition": "A quote appears at a request-argument boundary without a configured SQL construct.",
+      "rationale": "An isolated quote alone is weak context and is alert-only rather than a clear SQL-injection match."
     },
     {
       "id": "command-separator",
       "source": "(?:;|&&|\\|\\|)\\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\\b",
-      "flags": "i"
+      "flags": "i",
+      "name": "Command separator with command token",
+      "condition": "A separator is followed by one of the configured command tokens.",
+      "rationale": "This retained ambiguous signal is alert-only and is not sufficient for blocking."
     }
   ],
   "decisionPolicy": {

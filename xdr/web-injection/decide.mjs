@@ -177,20 +177,19 @@ export function decide(alert) {
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
 
-  if (patterns.length > 1) {
-    return result('alert', 0.68, 'ambiguous-pattern-overlap: 여러 공격 유형이 겹침');
-  }
-
   if (patterns.length === 0) {
     if (matchingIds(requestText, settings.ambiguousPatterns).length > 0) {
-      return result('alert', 0.6, 'ambiguous-request-signal: 요청 데이터에 불완전하거나 의심스러운 신호가 있어 검토 대상으로 분류');
+      return result('alert', 0.6, 'ambiguous-request-signal: incomplete or uncertain request pattern matched');
     }
-    return result('record', 0.08, 'normal-or-unsupported: 요청에서 지정된 공격 패턴 또는 모호 신호가 확인되지 않음');
+    return result('record', 0.08, 'normal-or-unsupported: no configured injection pattern matched');
   }
 
-  const patternName = patterns[0];
-  if (hasValidCorrelation(alert, patternName, source)) {
-    return result('block', 0.92, `${patternName}: 유효한 출처에서 서로 다른 경보 ID의 동일 패턴 반복 확인`);
+  const correlatedPattern = patterns.find((patternName) => hasValidCorrelation(alert, patternName, source));
+  if (correlatedPattern) {
+    return result('block', 0.92, correlatedPattern + ': repeated distinct alert IDs for the same validated source and pattern');
   }
-  return result('alert', 0.68, `${patternName}: 공격 패턴은 확인됐지만 반복 차단 조건이 부족함`);
+  if (patterns.length > 1) {
+    return result('alert', 0.68, 'ambiguous-pattern-overlap: ' + patterns.join(', ') + '; repeated-source evidence required');
+  }
+  return result('alert', 0.68, patterns[0] + ': clear injection pattern matched; repeated-source evidence required');
 }

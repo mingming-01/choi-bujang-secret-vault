@@ -13,11 +13,6 @@ function getExpiration(timestamp) {
   return Number.isFinite(expiration.getTime()) ? expiration.toISOString() : '';
 }
 
-function safeLogValue(value, fallback = '-') {
-  if (value === null || value === undefined || value === '') return fallback;
-  return String(value).replace(/[\u0000-\u001f\u007f]/g, ' ');
-}
-
 function parseIpv4(value) {
   const parts = value.split('.');
   if (parts.length !== 4) return null;
@@ -67,6 +62,10 @@ function normalizeIp(value) {
   if (!input || /[\s/]/.test(input)) return '';
   const ipv4 = parseIpv4(input);
   if (ipv4) return ipv4.join('.');
+  if (input.toLowerCase().startsWith('::ffff:')) {
+    const mapped = parseIpv4(input.slice(7));
+    if (mapped) return mapped.join('.');
+  }
   const ipv6 = parseIpv6(input);
   return ipv6 ? ipv6.map((group) => group.toString(16).padStart(4, '0')).join(':') : '';
 }
@@ -85,38 +84,50 @@ export async function respond({ root, decisions, alerts }) {
   const rules = [];
   const logLines = [];
   let skippedInvalidTimestamp = 0;
+  let skippedInvalidSource = 0;
 
   for (const decision of decisionList) {
     const alertId = typeof decision?.alertId === 'string' ? decision.alertId : '';
     const alert = alertList.find((item) => item?.id === alertId);
-    const timestamp = safeLogValue(alert?.timestamp);
     const normalizedSource = alert ? getValidSource(alert) : '';
-    const hasValidSource = normalizedSource !== '';
-    const source = hasValidSource ? normalizedSource : '-';
-    const action = safeLogValue(decision?.action, 'unknown');
+    if (!alert || !['alert', 'block'].includes(decision?.action)) continue;
 
-    if (!alert) {
-      logLines.push(`timestamp=- alert=${safeLogValue(alertId)} action=${action} source=- expiresAt=-`);
-      continue;
-    }
-    if (decision?.action !== 'block') {
-      logLines.push(`timestamp=${timestamp} alert=${safeLogValue(alert.id)} action=${action} source=${source} expiresAt=-`);
-      continue;
-    }
-    if (!hasValidSource) {
-      logLines.push(`timestamp=${timestamp} alert=${safeLogValue(alert.id)} action=block_skipped_invalid_source source=- expiresAt=- reason=missing_or_invalid_source`);
-      continue;
+    let outcome = 'alert_only';
+    let expiration = '';
+    let patternId = '';
+    if (decision.action === 'block') {
+      if (!normalizedSource) {
+        skippedInvalidSource += 1;
+        outcome = 'skipped_invalid_source';
+      } else {
+        expiration = getExpiration(alert.timestamp);
+        if (!expiration) {
+          skippedInvalidTimestamp += 1;
+          outcome = 'skipped_invalid_timestamp';
+        } else {
+          patternId = ['sql-injection', 'script-tag', 'path-traversal']
+            .find((id) => typeof decision.reason === 'string' && decision.reason.startsWith(`${id}:`)) ?? '';
+          if (!patternId) {
+            outcome = 'skipped_missing_pattern_evidence';
+          } else {
+            rules.push({ action: 'deny', source: normalizedSource, expiresAt: expiration, sourceAlert: alert.id, patternId });
+            outcome = 'deny_candidate';
+          }
+        }
+      }
     }
 
-    const expiration = getExpiration(alert.timestamp);
-    if (!expiration) {
-      skippedInvalidTimestamp += 1;
-      logLines.push(`timestamp=${timestamp} alert=${safeLogValue(alert.id)} action=block_skipped_invalid_timestamp source=${source} expiresAt=-`);
-      continue;
-    }
-
-    rules.push({ action: 'deny', source: normalizedSource, expiresAt: expiration, sourceAlert: alert.id });
-    logLines.push(`timestamp=${timestamp} alert=${safeLogValue(alert.id)} action=deny source=${source} expiresAt=${expiration}`);
+    const parsedTimestamp = typeof alert.timestamp === 'string' ? Date.parse(alert.timestamp) : NaN;
+    const event = {
+      timestamp: Number.isFinite(parsedTimestamp) ? new Date(parsedTimestamp).toISOString() : null,
+      alertId: typeof alert.id === 'string' ? alert.id.slice(0, 200) : null,
+      action: decision.action,
+      sourceAddress: normalizedSource || null,
+      expiresAt: expiration || null,
+      patternId: patternId || null,
+      outcome,
+    };
+    logLines.push(JSON.stringify(event));
   }
 
   if (logLines.length > 0) {
@@ -139,6 +150,6 @@ export async function respond({ root, decisions, alerts }) {
     }
   }
 
-  // The deny rules are candidates only; they are not applied to the existing ZTNA policy.
-  return { rules, blocked: rules.length, normalBlocked: false, skippedInvalidTimestamp };
+  // The request guard consumes these candidates separately from the ZTNA policy.
+  return { rules, blocked: rules.length, normalBlocked: false, skippedInvalidTimestamp, skippedInvalidSource };
 }
