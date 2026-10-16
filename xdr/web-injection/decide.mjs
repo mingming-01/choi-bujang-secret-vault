@@ -41,8 +41,12 @@ function getSettings(alert) {
     decodePasses: Number.isInteger(config.decodePasses)
       ? Math.max(0, Math.min(config.decodePasses, 4))
       : 2,
-    patterns: compileDefinitions(config.patterns),
-    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns),
+    patterns: Array.isArray(config.patterns)
+      ? compileDefinitions(config.patterns)
+      : DEFAULT_PATTERNS,
+    ambiguousPatterns: Array.isArray(config.ambiguousPatterns)
+      ? compileDefinitions(config.ambiguousPatterns)
+      : DEFAULT_AMBIGUOUS_PATTERNS,
   };
 }
 
@@ -151,22 +155,42 @@ function isValidAlertId(value) {
 }
 
 function hasValidCorrelation(alert, patternName, source) {
-  const correlation = alert?.correlationEvidence;
-  if (!source || !correlation || typeof correlation !== 'object' || Array.isArray(correlation)) return false;
-  const keys = Object.keys(correlation).sort();
-  if (keys.length !== 3 || keys.join(',') !== 'alertIds,patternId,sourceAddress') return false;
+  const evidence = alert?.correlationEvidence;
+
+  if (!source || !evidence || typeof evidence !== 'object' || Array.isArray(evidence)) {
+    return false;
+  }
+
+  const keys = Object.keys(evidence).sort().join(',');
+  const hasPatternId = Object.prototype.hasOwnProperty.call(evidence, 'patternId');
+
   if (
-    correlation.patternId !== patternName
-    || correlation.sourceAddress !== source
-    || !Array.isArray(correlation.alertIds)
-    || correlation.alertIds.length < 2
-    || !correlation.alertIds.every(isValidAlertId)
-  ) return false;
-  const alertIds = new Set(correlation.alertIds);
-  const alertId = alert?.id;
-  return alertIds.size === correlation.alertIds.length
-    && isValidAlertId(alertId)
-    && alertIds.has(alertId);
+    keys !== 'alertIds,sourceAddress'
+    && keys !== 'alertIds,patternId,sourceAddress'
+  ) {
+    return false;
+  }
+
+  if (hasPatternId && evidence.patternId !== patternName) return false;
+
+  let evidenceSource = evidence.sourceAddress;
+  if (typeof evidenceSource !== 'string') return false;
+  evidenceSource = evidenceSource.replace(/^(?:ipv4|ipv6):/, '');
+
+  if (normalizeSource(evidenceSource) !== source) return false;
+
+  const ids = evidence.alertIds;
+  if (
+    !Array.isArray(ids)
+    || ids.length === 0
+    || !ids.every(isValidAlertId)
+    || new Set(ids).size !== ids.length
+    || !isValidAlertId(alert?.id)
+  ) {
+    return false;
+  }
+
+  return ids.some((id) => id !== alert.id);
 }
 
 // Pure decision: request evidence determines severity; only runner-supplied,
