@@ -100,11 +100,21 @@ function getRequestValues(alert, settings) {
     .flatMap((value) => getParameterValues(value, settings.decodePasses));
 }
 
+function isSpecificPartialSql(value) {
+  // A bare natural-language phrase such as "select course" matches the broad
+  // configured expression, but is not useful SQL evidence. Keep clear incomplete
+  // syntax (UNION[/ALL], SELECT *, or a comma-separated SELECT list) reviewable.
+  return /\bunion\s+(?:all\s+)?$/i.test(value)
+    || /\bselect\s+\*\s*$/i.test(value)
+    || /\bselect\s+[\w`'"]+\s*,\s*[\w`'"]+(?:\s*,\s*[\w`'"]+)*\s*$/i.test(value);
+}
+
 function matchingIds(values, patterns) {
   return patterns
-    .filter(({ regex }) => values.some((value) => {
+    .filter(({ id, regex }) => values.some((value) => {
       regex.lastIndex = 0;
-      return regex.test(value);
+      if (!regex.test(value)) return false;
+      return id !== 'partial-sql' || isSpecificPartialSql(value);
     }))
     .map(({ id }) => id);
 }
