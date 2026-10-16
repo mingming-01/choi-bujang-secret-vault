@@ -11,6 +11,11 @@ const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
   { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
+const WEAK_AMBIGUOUS_PATTERN_IDS = new Set([
+  'single-traversal-segment',
+  'isolated-quote',
+  'command-separator',
+]);
 
 function compileDefinitions(definitions) {
   if (!Array.isArray(definitions)) return [];
@@ -153,35 +158,26 @@ function isValidAlertId(value) {
 function hasValidCorrelation(alert, patternName, source) {
   const correlation = alert?.correlationEvidence;
   if (!source || !correlation || typeof correlation !== 'object' || Array.isArray(correlation)) return false;
+  const allowedKeys = new Set(['sourceAddress', 'patternId', 'alertIds']);
+  if (Object.keys(correlation).some((key) => !allowedKeys.has(key))) return false;
 
   const evidenceSource = typeof correlation.sourceAddress === 'string'
     ? normalizeSource(correlation.sourceAddress.replace(/^(?:ipv4|ipv6):/, ''))
     : '';
   if (!evidenceSource || evidenceSource !== source) return false;
 
-  if (correlation.patternId !== undefined && correlation.patternId !== patternName) return false;
+  if (correlation.patternId !== patternName) return false;
 
   const ids = correlation.alertIds;
   if (
     !Array.isArray(ids)
-    || ids.length === 0
+    || ids.length < 2
     || !ids.every(isValidAlertId)
     || new Set(ids).size !== ids.length
     || !isValidAlertId(alert?.id)
   ) return false;
 
-  return ids.some((id) => id !== alert.id);
-}
-
-function hasRepeatedCountEvidence(alert, source) {
-  if (!source) return false;
-  const raw = alert?.data?.count;
-  const count = typeof raw === 'number'
-    ? raw
-    : typeof raw === 'string' && /^\d+$/.test(raw.trim())
-      ? Number(raw.trim())
-      : NaN;
-  return Number.isSafeInteger(count) && count >= 2;
+  return ids.includes(alert.id) && ids.some((id) => id !== alert.id);
 }
 
 export function decide(alert) {
@@ -189,22 +185,10 @@ export function decide(alert) {
   const requestText = getRequestText(alert, settings);
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
-  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
+  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns)
+    .filter((id) => !WEAK_AMBIGUOUS_PATTERN_IDS.has(id));
 
   if (patterns.length > 1) {
-    const repeatedPatterns = patterns.filter((pattern) =>
-      hasRepeatedCountEvidence(alert, source)
-        || hasValidCorrelation(alert, pattern, source),
-    );
-
-    if (repeatedPatterns.length > 0) {
-      return result(
-        'block',
-        0.92,
-        repeatedPatterns.join('+') + ': clear injection patterns repeated from the same valid source',
-      );
-    }
-
     return result(
       'alert',
       0.68,
@@ -214,10 +198,7 @@ export function decide(alert) {
   }
 
   if (patterns.length === 1) {
-    const repeated = hasRepeatedCountEvidence(alert, source)
-      || hasValidCorrelation(alert, patterns[0], source);
-
-    if (repeated) {
+    if (hasValidCorrelation(alert, patterns[0], source)) {
       return result(
         'block',
         0.92,

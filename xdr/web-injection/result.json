@@ -28,15 +28,15 @@
     },
     {
       "alertId": "wi-05",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "sql-injection+script-tag: clear injection patterns repeated from the same valid source"
+      "action": "alert",
+      "confidence": 0.68,
+      "reason": "ambiguous-pattern-overlap: sql-injection+script-tag; overlapping patterns require review"
     },
     {
       "alertId": "wi-06",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "command-separator: ambiguous signal is always alert-only"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no injection signal"
     },
     {
       "alertId": "wi-07",
@@ -46,15 +46,15 @@
     },
     {
       "alertId": "wi-08",
-      "action": "block",
-      "confidence": 0.92,
-      "reason": "sql-injection: clear injection pattern repeated from the same valid source"
+      "action": "alert",
+      "confidence": 0.68,
+      "reason": "sql-injection: clear pattern without repeat evidence"
     },
     {
       "alertId": "wi-09",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "isolated-quote: ambiguous signal is always alert-only"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no injection signal"
     },
     {
       "alertId": "wi-10",
@@ -70,9 +70,9 @@
     },
     {
       "alertId": "wi-12",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "single-traversal-segment: ambiguous signal is always alert-only"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no injection signal"
     },
     {
       "alertId": "wi-13",
@@ -100,9 +100,9 @@
     },
     {
       "alertId": "wi-17",
-      "action": "alert",
-      "confidence": 0.6,
-      "reason": "command-separator: ambiguous signal is always alert-only"
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no injection signal"
     },
     {
       "alertId": "wi-18",
@@ -160,9 +160,9 @@
     }
   ],
   "counts": {
-    "block": 7,
-    "alert": 6,
-    "record": 13
+    "block": 5,
+    "alert": 4,
+    "record": 17
   },
   "response": {
     "candidateRules": [
@@ -200,16 +200,9 @@
         "expiresAt": "2026-09-27T04:34:19.000Z",
         "sourceAlert": "wi-07",
         "patternId": "path-traversal"
-      },
-      {
-        "action": "deny",
-        "source": "203.0.113.22",
-        "expiresAt": "2026-09-27T05:56:02.000Z",
-        "sourceAlert": "wi-08",
-        "patternId": "sql-injection"
       }
     ],
-    "blockedCandidates": 6,
+    "blockedCandidates": 5,
     "skippedInvalidTimestamp": 0,
     "skippedInvalidSource": 0,
     "appliedToZtna": true
