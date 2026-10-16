@@ -8,8 +8,6 @@ const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'partial-sql', regex: /\bunion\s+(?:all\s+)?$|\bselect\s+(?:\*|[\w`"']+(?:\s*,\s*[\w`"']+)*)\s*$/i },
   { id: 'partial-script-tag', regex: /<\s*\/?\s*script\b(?![^>]*>)/i },
   { id: 'single-traversal-segment', regex: /(?:\.\.[/\\])/i },
-  { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
-  { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
 
 function compileDefinitions(definitions) {
@@ -42,7 +40,8 @@ function getSettings(alert) {
       ? Math.max(0, Math.min(config.decodePasses, 4))
       : 2,
     patterns: compileDefinitions(config.patterns),
-    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns),
+    ambiguousPatterns: compileDefinitions(config.ambiguousPatterns)
+      .filter(({ id }) => id !== 'isolated-quote' && id !== 'command-separator'),
   };
 }
 
@@ -184,12 +183,17 @@ export function decide(alert) {
     return result('record', 0.08, 'normal-or-unsupported: no configured injection pattern matched');
   }
 
-  const correlatedPattern = patterns.find((patternName) => hasValidCorrelation(alert, patternName, source));
-  if (correlatedPattern) {
-    return result('block', 0.92, correlatedPattern + ': repeated distinct alert IDs for the same validated source and pattern');
-  }
   if (patterns.length > 1) {
     return result('alert', 0.68, 'ambiguous-pattern-overlap: ' + patterns.join(', ') + '; repeated-source evidence required');
   }
+
+  const correlatedPattern = hasValidCorrelation(alert, patterns[0], source)
+    ? patterns[0]
+    : '';
+
+  if (correlatedPattern) {
+    return result('block', 0.92, correlatedPattern + ': repeated distinct alert IDs for the same validated source and pattern');
+  }
+
   return result('alert', 0.68, patterns[0] + ': clear injection pattern matched; repeated-source evidence required');
 }

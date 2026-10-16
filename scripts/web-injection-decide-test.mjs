@@ -19,8 +19,15 @@ assert.equal(fixture.moduleKey, 'web-injection');
 assert.equal(webInjectionConfig.schema, 'aleph.xdr.web-injection-patterns.v1');
 
 const expectedById = new Map([
-...['wi-01', 'wi-02', 'wi-03', 'wi-04', 'wi-05', 'wi-06', 'wi-07', 'wi-08', 'wi-09', 'wi-12', 'wi-15', 'wi-16', 'wi-17'].map((id) => [id, 'alert']),
-...['wi-10', 'wi-11', 'wi-13', 'wi-14', 'wi-18', 'wi-19', 'wi-20', 'wi-21', 'wi-22', 'wi-23', 'wi-24', 'wi-25', 'wi-26'].map((id) => [id, 'record']),
+  ...[
+    'wi-01', 'wi-02', 'wi-03', 'wi-04', 'wi-05',
+    'wi-07', 'wi-08', 'wi-12', 'wi-15', 'wi-16',
+  ].map((id) => [id, 'alert']),
+  ...[
+    'wi-06', 'wi-09', 'wi-10', 'wi-11', 'wi-13', 'wi-14',
+    'wi-17', 'wi-18', 'wi-19', 'wi-20', 'wi-21', 'wi-22',
+    'wi-23', 'wi-24', 'wi-25', 'wi-26',
+  ].map((id) => [id, 'record']),
 ]);
 const counts = { block: 0, alert: 0, record: 0 };
 for (const alert of fixture.alerts) {
@@ -39,8 +46,7 @@ for (const alert of fixture.alerts) {
   };
   assert.equal(decide(flattenedAlert).action, result.action, `description does not change classification for ${alert.id}`);
 }
-assert.deepEqual(counts, { block: 0, alert: 13, record: 13 }, 'fixture direct-call classifications; direct calls lack runner correlation');
-
+assert.deepEqual(counts, { block: 0, alert: 10, record: 16 }, 'fixture direct-call classifications; direct calls lack runner correlation');
 const sqlUrl = '/search?q=union+select+name+from+users';
 const correlated = (id, url = sqlUrl, sourceAddress = 'ipv4:203.0.113.90', patternId = 'sql-injection') => ({
   id,
@@ -95,7 +101,7 @@ const traversalUrl = '/files?path=../../etc/passwd';
 assert.equal(decide({ data: { srcip: '203.0.113.90', url: traversalUrl }, webInjectionConfig }).action, 'alert', 'one actual traversal alert remains alert-only');
 assert.equal(decide(correlated('traversal-event', traversalUrl, 'ipv4:203.0.113.90', 'path-traversal')).action, 'block', 'repeated same-source path-traversal alerts may block');
 assert.equal(decide({ data: { srcip: '203.0.113.90', url: '/files?path=../etc/passwd' }, webInjectionConfig }).action, 'alert', 'a single ../ is an incomplete request signal and remains review-only');
-assert.equal(decide({ data: { srcip: '203.0.113.90', url: '/search?q=%27' }, webInjectionConfig }).action, 'alert', 'an isolated quote in actual request data is review-only');
+assert.equal(decide({ data: { srcip: '203.0.113.90', url: '/search?q=%27' }, webInjectionConfig }).action, 'record', 'an isolated quote alone is insufficient evidence');
 assert.equal(decide({ data: { srcip: '203.0.113.90', url: '/search?q=union+select+name+from+users+%3Cscript%3E' }, webInjectionConfig }).action, 'alert', 'overlapping request patterns remain ambiguous');
 assert.equal(decide({ data: { srcip: '203.0.113.90', url: '/search?q=SELECT+*' }, webInjectionConfig }).action, 'alert', 'an incomplete injection-shaped SQL request is review-only');
 assert.equal(decide({ data: { srcip: '203.0.113.90', url: '/search?q=select' }, webInjectionConfig }).action, 'record', 'a generic SQL keyword alone is not sufficient evidence');
