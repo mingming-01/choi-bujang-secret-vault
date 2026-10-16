@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../src/verify-login.mjs';
+import { handleDeviceAction } from '../src/device-approval.mjs';
 
 const BEARER_TOKEN = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/u;
 
@@ -62,6 +63,35 @@ export default async function handler(request, response) {
 
   if (request.method === 'POST') {
     const body = readBody(request);
+
+    if (body && typeof body.action === 'string') {
+      const authorization = request.headers?.authorization;
+      const match = typeof authorization === 'string'
+        ? BEARER_TOKEN.exec(authorization)
+        : null;
+      if (!match) {
+        return response.status(401).json({ error: 'AUTHENTICATION_REQUIRED' });
+      }
+
+      let user;
+      try {
+        user = await service.verifyLogin(authorization);
+      } catch {
+        return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
+      }
+      if (!user || user.kind !== 'student') {
+        return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
+      }
+
+      const result = await handleDeviceAction(body.action, {
+        supabase: service.supabase,
+        userId: user.userId,
+        config,
+        body,
+      });
+      return response.status(result.status).json(result.body);
+    }
+
     if (!body || typeof body.email !== 'string' || typeof body.password !== 'string'
         || body.email.length > 320 || body.password.length === 0 || body.password.length > 1024) {
       return response.status(400).json({ error: 'INVALID_LOGIN_REQUEST' });

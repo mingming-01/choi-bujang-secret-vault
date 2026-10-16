@@ -358,7 +358,52 @@ async function runLocalStep10Checks() {
   return results;
 }
 
+async function runLocalStep11Checks() {
+  const { execFileSync } = await import('node:child_process');
+
+  try {
+    execFileSync(
+      process.execPath,
+      ['--test', 'test/device-approval.test.mjs'],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        stdio: 'pipe',
+      },
+    );
+  } catch (error) {
+    const output = [error.stdout, error.stderr]
+      .filter(Boolean)
+      .join('\n');
+
+    throw new Error(
+      `11단계 기기 서명 점검 실패:\n${output || error.message}`,
+    );
+  }
+
+  return [
+    {
+      attackId: 'step11_missing_device_signature',
+      expected: '기기 서명 헤더가 없는 보호 요청 거부',
+      observed: '로컬 기기 승인 테스트 통과',
+    },
+    {
+      attackId: 'step11_signed_path_tampering',
+      expected: '서명 후 요청 경로가 변경된 요청 거부',
+      observed: '로컬 경로 변조 테스트 통과',
+    },
+    {
+      attackId: 'step11_signed_body_tampering',
+      expected: '서명 후 요청 본문이 변경된 요청 거부',
+      observed: '로컬 본문 변조 테스트 통과',
+    },
+  ];
+}
+
 export async function runAttackChecks(config) {
+  if (config.step === 11) {
+    return runLocalStep11Checks();
+  }
   if (config.step === 10) {
     return runLocalStep10Checks();
   }

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import config from '../../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../../src/verify-login.mjs';
+import { verifyDeviceRequest } from '../../src/device-approval.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const BEARER_TOKEN = /^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u;
@@ -73,6 +74,13 @@ export default async function handler(request, response) {
     console.warn('[notes/:id] deny: INVALID_AUTHENTICATION');
     return response.status(401).json({ error: 'INVALID_AUTHENTICATION' });
   }
+  const deviceCheck = await verifyDeviceRequest(request, {
+    supabase: currentService.supabase, userId: user.userId, config,
+  });
+  if (!deviceCheck.ok) {
+    return response.status(deviceCheck.status).json({ error: deviceCheck.error });
+  }
+
   const client = currentService.supabase;
 
   const id = request.query?.id;

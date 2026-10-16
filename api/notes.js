@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../src/verify-login.mjs';
+import { verifyDeviceRequest } from '../src/device-approval.mjs';
 
 const BEARER_TOKEN = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/u;
 
@@ -107,6 +108,12 @@ export default async function handler(request, response) {
     return response.status(auth.status).json({ error: auth.error });
   }
   const { supabase: client, user } = auth;
+  const deviceCheck = await verifyDeviceRequest(request, {
+    supabase: client, userId: user.userId, config,
+  });
+  if (!deviceCheck.ok) {
+    return response.status(deviceCheck.status).json({ error: deviceCheck.error });
+  }
 
   if (request.method === 'GET') {
     try {

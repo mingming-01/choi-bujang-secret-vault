@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../src/verify-login.mjs';
+import { verifyDeviceRequest } from '../src/device-approval.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const NOTE_ID = /^[1-9][0-9]{0,17}$/u;
@@ -239,6 +240,30 @@ export function createRestoreHandler(
       return responseJson(response, 403, {
         error: 'RESTORE_NOT_ALLOWED',
       });
+    }
+
+    // 학생의 복구 요청은 승인된 기기의 서명을 확인합니다.
+    // 심판용 가상 복구 요청의 기존 흐름은 유지합니다.
+    if (identity.kind === 'student') {
+      let deviceCheck;
+
+      try {
+        deviceCheck = await verifyDeviceRequest(request, {
+          supabase: currentRuntime.supabase,
+          userId: identity.userId,
+          config,
+        });
+      } catch {
+        return responseJson(response, 503, {
+          error: 'DEVICE_APPROVAL_UNAVAILABLE',
+        });
+      }
+
+      if (!deviceCheck.ok) {
+        return responseJson(response, deviceCheck.status, {
+          error: deviceCheck.error,
+        });
+      }
     }
 
     let backup;

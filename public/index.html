@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BYTE BACK | 로그인 자료실</title>
+  <meta name="theme-color" content="#101a28">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>BYTE BACK | 보호 자료실</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; min-height: 100vh; background: #101a28; color: #ecf4ff; }
@@ -34,9 +36,29 @@
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 5단계 서버 인증</div>
+    <div class="eyebrow">BYTE BACK · 11단계 설치형 자료실</div>
     <h1>점령된 자료실</h1>
     <p>Supabase Auth 이메일·비밀번호로 로그인하면 본인 소유의 가상 메모만 관리할 수 있습니다.</p>
+
+    <section class="panel" aria-labelledby="app-heading">
+      <h2 id="app-heading">앱 설치 및 기기 상태</h2>
+      <p id="install-status" class="status" role="status" aria-live="polite">
+        설치 가능한 웹앱입니다. 설치 여부만으로 기기가 승인되지는 않습니다.
+      </p>
+      <button id="install-app" type="button" hidden>앱 설치</button>
+      <div id="device-controls" hidden>
+        <p id="device-status" class="status" role="status" aria-live="polite">
+          로그인 후 서버에서 기기 승인 상태를 확인합니다.
+        </p>
+        <p id="connection-status" class="status" role="status" aria-live="polite"></p>
+        <div class="actions">
+          <button id="device-register" type="button">이 기기 승인 요청</button>
+          <button id="device-refresh" class="secondary" type="button">승인 상태 새로고침</button>
+        </div>
+        <p id="device-message" role="status" aria-live="polite"></p>
+      </div>
+      <p>오프라인에서는 서버 연결과 승인 여부 확인이 불가능합니다. 보호 자료를 이용하려면 온라인 연결이 필요합니다.</p>
+    </section>
 
     <section class="panel" aria-labelledby="auth-heading">
       <h2 id="auth-heading">로그인</h2>
@@ -84,20 +106,67 @@
     const noteMessage = document.querySelector('#note-message');
     const notesList = document.querySelector('#notes');
     const samplesList = document.querySelector('#samples');
+    const sampleSection = samplesList.closest('section');
+    const deviceControls = document.querySelector('#device-controls');
+    const deviceStatus = document.querySelector('#device-status');
+    const deviceRegisterButton = document.querySelector('#device-register');
+    const deviceRefreshButton = document.querySelector('#device-refresh');
+    const deviceMessage = document.querySelector('#device-message');
+    const connectionStatus = document.querySelector('#connection-status');
+    const installButton = document.querySelector('#install-app');
+    const installStatus = document.querySelector('#install-status');
+    let installPromptEvent = null;
+
+    function updateConnectionStatus() {
+      connectionStatus.textContent = navigator.onLine
+        ? ''
+        : '오프라인 상태입니다. 서버 승인 확인과 보호 자료 접근이 불가능합니다.';
+    }
+
+    window.addEventListener('online', updateConnectionStatus);
+    window.addEventListener('offline', updateConnectionStatus);
+    updateConnectionStatus();
+
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      installPromptEvent = event;
+      installButton.hidden = false;
+      installStatus.textContent = '앱을 설치할 수 있습니다. 설치와 기기 승인은 별개입니다.';
+    });
+
+    installButton.addEventListener('click', async () => {
+      if (!installPromptEvent) {
+        installStatus.textContent = '브라우저 메뉴에서 앱 설치 항목을 확인해 주세요.';
+        return;
+      }
+
+      const promptEvent = installPromptEvent;
+      installPromptEvent = null;
+      installButton.hidden = true;
+
+      try {
+        await promptEvent.prompt();
+        const choice = await promptEvent.userChoice;
+        installStatus.textContent = choice.outcome === 'accepted'
+          ? '앱 설치를 선택했습니다. 서버의 기기 승인은 별도로 확인해야 합니다.'
+          : '앱 설치를 취소했습니다. 기기 승인 상태는 바뀌지 않았습니다.';
+      } catch {
+        installStatus.textContent = '설치 상태를 확인하지 못했습니다. 브라우저 메뉴를 확인해 주세요.';
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      installStatus.textContent = '앱이 설치되었습니다. 설치 여부만으로 기기가 승인되지는 않습니다.';
+    });
+
     let session = null;
     let editingId = null;
 
     function saveSession(nextSession) {
       if (nextSession?.access_token && nextSession?.refresh_token && nextSession?.user) {
         session = nextSession;
-        sessionStorage.setItem('vault-session', JSON.stringify({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
-          user: { email: session.user.email },
-        }));
       } else {
         session = null;
-        sessionStorage.removeItem('vault-session');
       }
     }
 
@@ -121,32 +190,233 @@
       }
     }
 
+    function decodeBase64url(value) {
+      const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    function encodeBase64url(value) {
+      const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i += 1) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
+    function canonicalJson(value) {
+      if (Array.isArray(value)) {
+        return `[${value.map(canonicalJson).join(',')}]`;
+      }
+      if (value !== null && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(key =>
+          `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+      }
+      return JSON.stringify(value);
+    }
+
+    async function sha256Base64url(value) {
+      const digest = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(value),
+      );
+      return encodeBase64url(digest);
+    }
+
+    async function requestBodyDigest(body, method) {
+      if (method === 'GET' || body === undefined || body === '') {
+        return sha256Base64url('');
+      }
+
+      if (typeof body === 'string') {
+        try {
+          return sha256Base64url(canonicalJson(JSON.parse(body)));
+        } catch {
+          return sha256Base64url(body);
+        }
+      }
+      return sha256Base64url(canonicalJson(body));
+    }
+
+    function creationOptions(options) {
+      return {
+        ...options,
+        challenge: decodeBase64url(options.challenge),
+        user: { ...options.user, id: decodeBase64url(options.user.id) },
+        excludeCredentials: (options.excludeCredentials || []).map(item => ({
+          ...item,
+          id: decodeBase64url(item.id),
+        })),
+      };
+    }
+
+    function authenticationOptions(options) {
+      return {
+        ...options,
+        challenge: decodeBase64url(options.challenge),
+        allowCredentials: (options.allowCredentials || []).map(item => ({
+          ...item,
+          id: decodeBase64url(item.id),
+        })),
+      };
+    }
+
+    function serializeCredential(credential, registration) {
+      const response = credential.response;
+      const responseData = registration
+        ? {
+            clientDataJSON: encodeBase64url(response.clientDataJSON),
+            attestationObject: encodeBase64url(response.attestationObject),
+            transports: typeof response.getTransports === 'function'
+              ? response.getTransports()
+              : [],
+          }
+        : {
+            clientDataJSON: encodeBase64url(response.clientDataJSON),
+            authenticatorData: encodeBase64url(response.authenticatorData),
+            signature: encodeBase64url(response.signature),
+            userHandle: response.userHandle
+              ? encodeBase64url(response.userHandle)
+              : null,
+          };
+
+      return {
+        id: credential.id,
+        rawId: encodeBase64url(credential.rawId),
+        type: credential.type,
+        response: responseData,
+        clientExtensionResults: credential.getClientExtensionResults(),
+        ...(credential.authenticatorAttachment
+          ? { authenticatorAttachment: credential.authenticatorAttachment }
+          : {}),
+      };
+    }
+
+    function friendlyError(error) {
+      const messages = {
+        DEVICE_NOT_APPROVED: '승인된 기기가 없습니다. 이 기기의 승인 요청을 제출해 주세요.',
+        DEVICE_APPROVAL_UNAVAILABLE: '기기 승인 서비스를 사용할 수 없습니다. 서버와 데이터베이스 설정을 확인해 주세요.',
+        DEVICE_SIGNATURE_REQUIRED: '보호 요청에 기기 서명이 필요합니다.',
+        INVALID_DEVICE_SIGNATURE: '기기 서명을 검증하지 못했습니다.',
+        INVALID_DEVICE_CHALLENGE: '요청 확인 값이 만료되었거나 이미 사용됐습니다. 다시 시도해 주세요.',
+        SIGNED_REQUEST_MISMATCH: '서명 이후 요청 경로나 본문이 바뀌어 요청이 거부됐습니다.',
+        INVALID_DEVICE_REGISTRATION: '기기 등록 응답을 검증하지 못했습니다.',
+        INVALID_DEVICE_REQUEST: '요청 정보가 올바르지 않습니다.',
+        AUTHENTICATION_REQUIRED: '로그인이 필요합니다.',
+        INVALID_AUTHENTICATION: '로그인이 만료됐습니다. 다시 로그인해 주세요.',
+      };
+      return messages[error?.message] || error?.message || '요청을 처리하지 못했습니다.';
+    }
+
+    async function authAction(action, details = {}, retried = false) {
+      if (!session?.access_token) throw new Error('로그인이 필요합니다.');
+
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ ...details, action }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 401 && !retried) {
+        const refreshed = await refreshSession();
+        if (refreshed?.access_token && refreshed?.refresh_token) {
+          saveSession({ ...refreshed, user: refreshed.user || session.user });
+          return authAction(action, details, true);
+        }
+        await updateSession(null);
+      }
+
+      if (!response.ok) throw new Error(data.error || `요청 실패 (HTTP ${response.status})`);
+      return data;
+    }
+
+    async function refreshDeviceStatus() {
+      const data = await authAction('device-status');
+
+      if (!Array.isArray(data.devices) || data.devices.length === 0) {
+        deviceStatus.textContent = '등록된 기기가 없습니다.';
+        return data;
+      }
+
+      const names = {
+        pending: '승인 대기',
+        approved: '승인됨',
+        rejected: '거부됨',
+      };
+      deviceStatus.textContent = data.devices.map(device =>
+        `${device.label}: ${names[device.status] || '상태 미확인'}`).join(' · ');
+      return data;
+    }
+
     async function api(path, options = {}, retried = false) {
       if (!session?.access_token) throw new Error('로그인이 필요합니다.');
+      if (!window.isSecureContext || !crypto?.subtle || !navigator.credentials) {
+        throw new Error('보호 요청에는 HTTPS와 WebAuthn을 지원하는 브라우저가 필요합니다.');
+      }
+
+      const method = (options.method || 'GET').toUpperCase();
+      const bodySha256 = await requestBodyDigest(options.body, method);
+
+      const challengeData = await authAction('device-challenge', {
+        method,
+        path,
+        bodySha256,
+      });
+
+      let credential;
+      try {
+        credential = await navigator.credentials.get({
+          publicKey: authenticationOptions(challengeData.options),
+        });
+      } catch {
+        throw new Error('기기 인증이 취소됐거나 인증 장치를 사용할 수 없습니다.');
+      }
+
+      if (!credential) throw new Error('기기 인증이 완료되지 않았습니다.');
+
+      const assertion = serializeCredential(credential, false);
+      const assertionHeader = encodeBase64url(
+        new TextEncoder().encode(JSON.stringify(assertion)),
+      );
+
       const requestOptions = {
         ...options,
         cache: 'no-store',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          ...(options.headers || {}),
           ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-          ...options.headers,
+          Authorization: `Bearer ${session.access_token}`,
+          'X-Device-Challenge': challengeData.options.challenge,
+          'X-Device-Assertion': assertionHeader,
         },
       };
+
       const response = path === '/api/notes'
         ? await fetch('/api/notes', requestOptions)
         : await fetch(path, requestOptions);
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        if (response.status === 401) {
-          const refreshed = retried ? null : await refreshSession();
-          if (refreshed?.access_token && refreshed?.refresh_token) {
-            saveSession({ ...refreshed, user: refreshed.user || session.user });
-            return api(path, options, true);
-          }
-          await updateSession(null);
+
+      if (response.status === 401 && !retried) {
+        const refreshed = await refreshSession();
+        if (refreshed?.access_token && refreshed?.refresh_token) {
+          saveSession({ ...refreshed, user: refreshed.user || session.user });
+          return api(path, options, true);
         }
-        throw new Error(data.error || `요청을 처리하지 못했습니다 (HTTP ${response.status}).`);
+        await updateSession(null);
       }
+
+      if (!response.ok) throw new Error(data.error || `요청 실패 (HTTP ${response.status})`);
       return data;
     }
 
@@ -217,29 +487,96 @@
 
     async function updateSession(nextSession) {
       saveSession(nextSession);
-      const signedIn = Boolean(session?.user);
-      authStatus.textContent = signedIn ? `로그인 상태: ${session.user.email}` : '로그인하지 않았습니다.';
+      const signedIn = Boolean(session?.access_token && session?.user);
+
+      authStatus.textContent = signedIn
+        ? `로그인 상태: ${session.user.email}`
+        : '로그인하지 않았습니다.';
       loginForm.hidden = signedIn;
       logoutButton.hidden = !signedIn;
-      workspace.hidden = !signedIn;
+      deviceControls.hidden = !signedIn;
+      workspace.hidden = true;
+      sampleSection.hidden = true;
+
       if (!signedIn) {
         notesList.replaceChildren();
         const note = document.createElement('li');
-        note.textContent = '로그인 후 사용자 메모를 불러옵니다.';
+        note.textContent = '로그인 후 승인된 기기에서 자료를 불러옵니다.';
         notesList.append(note);
+
         samplesList.replaceChildren();
         const sample = document.createElement('li');
-        sample.textContent = '로그인 후 계정별 가상 메모를 불러옵니다.';
+        sample.textContent = '로그인 후 승인된 기기에서 자료를 불러옵니다.';
         samplesList.append(sample);
+
+        deviceStatus.textContent = '로그인 후 서버에서 승인 상태를 확인합니다.';
+        showMessage(deviceMessage, '');
         resetEditor();
         return;
       }
+
       try {
+        connectionStatus.textContent = navigator.onLine
+          ? ''
+          : '오프라인 상태입니다. 서버 승인 확인과 보호 자료 접근이 불가능합니다.';
+
+        await refreshDeviceStatus();
         await loadNotes();
+
+        workspace.hidden = false;
+        sampleSection.hidden = false;
+        showMessage(deviceMessage, '서명된 요청 확인에 성공했습니다.');
       } catch (error) {
-        showMessage(noteMessage, error.message);
+        showMessage(deviceMessage, friendlyError(error));
       }
     }
+
+    deviceRegisterButton.addEventListener('click', async () => {
+      deviceRegisterButton.disabled = true;
+      showMessage(deviceMessage, '기기 등록 옵션을 요청하고 있습니다.');
+
+      try {
+        if (!navigator.credentials?.create || !window.isSecureContext) {
+          throw new Error('기기 등록에는 HTTPS와 WebAuthn 지원 브라우저가 필요합니다.');
+        }
+
+        const registration = await authAction('device-registration-options', {
+          deviceLabel: 'BYTE BACK 기기',
+        });
+        const credential = await navigator.credentials.create({
+          publicKey: creationOptions(registration.options),
+        });
+
+        if (!credential) throw new Error('기기 등록이 취소됐습니다.');
+
+        const result = await authAction('device-registration-verify', {
+          challenge: registration.challenge,
+          credential: serializeCredential(credential, true),
+          deviceLabel: registration.deviceLabel,
+        });
+
+        showMessage(
+          deviceMessage,
+          result.message || '등록 요청을 제출했습니다. 관리자 승인을 기다려 주세요.',
+        );
+        await refreshDeviceStatus();
+      } catch (error) {
+        showMessage(deviceMessage, friendlyError(error));
+      } finally {
+        deviceRegisterButton.disabled = false;
+      }
+    });
+
+    deviceRefreshButton.addEventListener('click', async () => {
+      deviceRefreshButton.disabled = true;
+      showMessage(deviceMessage, '서버에서 승인 상태를 확인하고 있습니다.');
+
+      try {
+        await updateSession(session);
+      } finally {
+        deviceRefreshButton.disabled = false;
+      }
+    });
 
     loginForm.addEventListener('submit', async event => {
       event.preventDefault();
@@ -311,13 +648,9 @@
     });
 
     document.querySelector('#cancel-edit').addEventListener('click', resetEditor);
-    let storedSession = null;
-    try {
-      storedSession = JSON.parse(sessionStorage.getItem('vault-session') || 'null');
-    } catch {
-      sessionStorage.removeItem('vault-session');
-    }
-    await updateSession(storedSession);
+    // 세션 토큰은 브라우저 저장소에 기록하지 않습니다.
+    // 페이지를 다시 열면 로그인과 기기 인증을 다시 진행합니다.
+    await updateSession(null);
   </script>
 </body>
 </html>
