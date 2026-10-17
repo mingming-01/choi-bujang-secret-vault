@@ -1,0 +1,27 @@
+{
+  "schema": "aleph.xdr.privilege-patterns.v1",
+  "mitre": [
+    "T1068",
+    "T1078"
+  ],
+  "patterns": [
+    {
+      "id": "administrator-group-addition",
+      "name": "일반 계정의 관리자 그룹 추가",
+      "condition": "경보 설명에 일반 계정이 관리자 그룹에 추가되었다고 명시되어야 하며, 과제 그룹처럼 관리자 권한이 없는 그룹 추가는 제외한다.",
+      "basis": "T1078 (Valid Accounts): 일반 계정이 관리자 권한을 얻게 된 정황은 정상 계정의 오용 가능성을 확인할 단서이며, fixture pv-01, pv-04, pv-05, pv-07에서 관련 신호를 확인할 수 있다."
+    },
+    {
+      "id": "unfamiliar-admin-command",
+      "name": "낯선 출발지 또는 권한 변경 직후의 관리자 명령",
+      "condition": "경보 설명에 처음 보는 주소에서의 관리자 명령 실행, 방금 관리자 그룹에 추가된 계정의 명령 실행 또는 다른 계정 권한을 사용한 명령 실행 중 하나가 구체적으로 나타난다.",
+      "basis": "T1068 (Exploitation for Privilege Escalation) 및 T1078 (Valid Accounts): fixture pv-02, pv-03, pv-04, pv-06, pv-08은 권한 상승 또는 계정 오용 가능성을 검토할 구체적인 명령 실행 정황을 보여 준다."
+    },
+    {
+      "id": "off-hours-privilege-use",
+      "name": "업무 시간 밖의 권한 사용",
+      "condition": "경보 설명에 업무 또는 수업의 정상 시간 밖에서 관리자 그룹 변경이나 관리자 명령 실행이 발생했다고 명시되어야 한다. 시각 정보만으로 업무 외 시간이라고 판단하지 않는다.",
+      "basis": "T1078 (Valid Accounts): 정상 계정의 비정상적인 시간대 사용은 계정 오용 가능성을 살펴볼 보조 신호이며, fixture pv-03, pv-07의 설명에서 관련 정황을 확인할 수 있다."
+    }
+  ]
+}

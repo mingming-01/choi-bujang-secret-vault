@@ -1,0 +1,247 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "privilege",
+  "decisions": [
+    {
+      "alertId": "pv-01",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "일반 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "낯선 출발지 또는 권한 변경 직후의 관리자 명령"
+    },
+    {
+      "alertId": "pv-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "낯선 출발지 또는 권한 변경 직후의 관리자 명령"
+    },
+    {
+      "alertId": "pv-04",
+      "action": "block",
+      "confidence": 0.97,
+      "reason": "일반 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-05",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "일반 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "낯선 출발지 또는 권한 변경 직후의 관리자 명령"
+    },
+    {
+      "alertId": "pv-07",
+      "action": "block",
+      "confidence": 0.97,
+      "reason": "일반 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "낯선 출발지 또는 권한 변경 직후의 관리자 명령"
+    },
+    {
+      "alertId": "pv-09",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "일반 계정의 관리자 그룹 추가"
+    },
+    {
+      "alertId": "pv-10",
+      "action": "alert",
+      "confidence": 0.62,
+      "reason": "권한 상승 요청이 취소되어 실제 권한 변경은 확인되지 않음"
+    },
+    {
+      "alertId": "pv-11",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-12",
+      "action": "alert",
+      "confidence": 0.62,
+      "reason": "평소 주소에서 발생한 단일 관리자 명령으로 추가 확인 필요"
+    },
+    {
+      "alertId": "pv-13",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-14",
+      "action": "alert",
+      "confidence": 0.62,
+      "reason": "단일 권한 상승 정황이며 후속 명령은 확인되지 않음"
+    },
+    {
+      "alertId": "pv-15",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-16",
+      "action": "alert",
+      "confidence": 0.62,
+      "reason": "관리자 명령 실패 1건으로 실제 권한 상승은 확인되지 않음"
+    },
+    {
+      "alertId": "pv-17",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-18",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-19",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-20",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-21",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-22",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-23",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-24",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-25",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    },
+    {
+      "alertId": "pv-26",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "명확한 권한 상승 또는 의심스러운 권한 사용 증거가 확인되지 않음"
+    }
+  ],
+  "counts": {
+    "block": 9,
+    "alert": 4,
+    "record": 13
+  },
+  "response": {
+    "candidateRules": [
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "203.0.113.11",
+        "expiresAt": "2026-10-17T15:45:27.891Z",
+        "sourceAlert": "pv-01",
+        "patternId": "administrator-group-addition"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "203.0.113.11",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-02",
+        "patternId": "unfamiliar-admin-command"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "198.51.100.11",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-03",
+        "patternId": "unfamiliar-admin-command"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "192.0.2.11",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-04",
+        "patternId": "administrator-group-addition"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "203.0.113.17",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-05",
+        "patternId": "administrator-group-addition"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "198.51.100.17",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-06",
+        "patternId": "unfamiliar-admin-command"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "192.0.2.17",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-07",
+        "patternId": "administrator-group-addition"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "203.0.113.27",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-08",
+        "patternId": "unfamiliar-admin-command"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "privilege",
+        "source": "198.51.100.27",
+        "expiresAt": "2026-10-17T15:45:27.892Z",
+        "sourceAlert": "pv-09",
+        "patternId": "administrator-group-addition"
+      }
+    ],
+    "blockedCandidates": 9,
+    "skippedInvalidTimestamp": 0,
+    "skippedInvalidSource": 0,
+    "appliedToZtna": true
+  }
+}

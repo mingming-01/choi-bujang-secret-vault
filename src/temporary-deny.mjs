@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 const RULES_RESULT = new URL('../xdr/web-injection/result.json', import.meta.url);
 const PATTERNS_FILE = new URL('../xdr/web-injection/patterns.json', import.meta.url);
 const PERSISTENCE_RESULT = new URL('../xdr/persistence/result.json', import.meta.url);
+const PRIVILEGE_RESULT = new URL('../xdr/privilege/result.json', import.meta.url);
 
 function parseIpv4(value) {
   const parts = value.split('.');
@@ -118,6 +119,38 @@ export function isDeniedByPersistenceRules(request, rules, now = Date.now()) {
   });
 }
 
+export function isDeniedByPrivilegeRules(request, rules, now = Date.now()) {
+  const source = getRequestSource(request);
+
+  if (!source || !Number.isFinite(now) || !Array.isArray(rules)) {
+    return false;
+  }
+
+  const allowedPatterns = [
+    'administrator-group-addition',
+    'unfamiliar-admin-command',
+  ];
+
+  return rules.some((rule) => {
+    if (
+      rule?.action !== 'deny'
+      || rule?.moduleKey !== 'privilege'
+      || normalizeSource(rule.source) !== source
+      || typeof rule.sourceAlert !== 'string'
+      || rule.sourceAlert.length === 0
+      || !allowedPatterns.includes(rule.patternId)
+    ) {
+      return false;
+    }
+
+    const expiresAt = typeof rule.expiresAt === 'string'
+      ? Date.parse(rule.expiresAt)
+      : NaN;
+
+    return Number.isFinite(expiresAt) && expiresAt > now;
+  });
+}
+
 export async function isTemporarilyDenied(request, now = Date.now()) {
   try {
     const [result, patterns] = await Promise.all([
@@ -134,13 +167,27 @@ export async function isTemporarilyDenied(request, now = Date.now()) {
       return true;
     }
   } catch {
-    // 웹 주입 결과를 읽지 못해도 persistence 검사는 계속합니다.
+    // 웹 주입 결과를 읽지 못해도 다른 거부 검사는 계속합니다.
   }
 
   try {
     const result = await readFile(PERSISTENCE_RESULT, 'utf8').then(JSON.parse);
 
-    return isDeniedByPersistenceRules(
+    if (isDeniedByPersistenceRules(
+      request,
+      result?.response?.candidateRules,
+      now,
+    )) {
+      return true;
+    }
+  } catch {
+    // persistence 결과가 없으면 privilege 검사로 넘어갑니다.
+  }
+
+  try {
+    const result = await readFile(PRIVILEGE_RESULT, 'utf8').then(JSON.parse);
+
+    return isDeniedByPrivilegeRules(
       request,
       result?.response?.candidateRules,
       now,

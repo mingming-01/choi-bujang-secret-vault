@@ -322,3 +322,9 @@ npm run xdr:run -- web-injection
 
 **주의:** fixture의 경보 시각은 2026년 9월 27일이므로, 이 경보들로 생성한 30분 만료 차단 후보는 현재 만료된 상태입니다.
 
+## 보너스 XDR: 권한 상승 경보
+
+- `npm run xdr:run -- privilege`는 가상 권한 상승 경보를 판정하고 `xdr/privilege/result.json`을 갱신합니다.
+- `xdr/privilege/decide.mjs`는 독립 판정 모듈이며, `respond.mjs`는 `block` 결과의 임시 거부 후보와 알림 로그를 관리합니다.
+- 임시 거부 후보는 실행 시점부터 30분간 유효하며, `src/temporary-deny.mjs`에서 `/api/notes`의 기존 접근 검사와 연결됩니다.
+- 현재 연결은 출발지 IP 기반 임시 거부입니다. 가상 계정과 검증된 로그인 UUID 간 연결이 없어 실제 계정 세션 폐기 기능은 구현하지 않았습니다.
