@@ -229,7 +229,7 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
   await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`, 'utf8');
 
-  if (moduleKey === 'brute-force' || moduleKey === 'web-injection') {
+  if (moduleKey === 'brute-force' || moduleKey === 'web-injection' || moduleKey === 'known-cve') {
     const respondPath = join(root, 'xdr', moduleKey, 'respond.mjs');
     try {
       await access(respondPath);
@@ -239,7 +239,7 @@ export async function runXdr({ root, moduleKey, writeError = (line) => console.e
     const responder = await import(pathToFileURL(respondPath).href);
     if (typeof responder.respond !== 'function') throw new Error('respond 함수를 내보내지 않았습니다.');
     const response = await responder.respond({ root, decisions, alerts: fixture.alerts });
-    if (moduleKey === 'web-injection') {
+    if (moduleKey === 'web-injection' || moduleKey === 'known-cve') {
       result.response = {
         candidateRules: Array.isArray(response?.rules) ? response.rules : [],
         blockedCandidates: Number.isInteger(response?.blocked) ? response.blocked : 0,

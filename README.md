@@ -289,3 +289,11 @@ node --test test/device-approval.test.mjs test/war-room.test.mjs test/war-room-e
 - 브라우저에서 API 점검 버튼을 누른 결과가 없는 시험은 미실행입니다. 서버 응답을 받지 못한 요청은 미검증으로 남기며, 서버 로그나 HTTP 결과가 없으면 요청 성공을 추정하지 않습니다.
 - 1~11단계의 전체 회귀 시험, 배포 환경의 정상 사용자 요청과 거부 요청, 41종 총공세, 관리자 기기 승인, 실제 백업 복구 및 공식 심판 통과는 실제로 수행하고 근거를 확보하기 전까지 미확인입니다.
 - 저장점 생성 전 `aleph.config.json`의 `step`이 `12`인지 확인합니다. README 기록, 커밋 및 제출 JSON의 커밋 해시는 실제 생성 결과로 대조합니다.
+
+## 보너스 xdr-03 · 알려진 취약점 악용 (known-cve)
+
+- `npm run xdr:run -- known-cve` 로 `xdr/fixtures/known-cve.json` 경보를 판단해 `xdr/known-cve/result.json` 을 만듭니다.
+- `xdr/known-cve/decide.mjs`: CVE-2021-44228 형태의 원격 조회 구문이 요청 값에 있으면 block, 애매한 신호나 규칙 수준 5 이상은 alert, 나머지는 record 입니다.
+- `xdr/known-cve/respond.mjs`: block 만 만료 시각이 있는 거부 후보로 만들고 `xdr/alerts.log` 에 한 줄씩 기록합니다.
+- `node xdr/known-cve/read-alerts.mjs`: 확인용 읽기 도구이며 decide 가 불러오지 않습니다.
+- 아직 판정기의 임시 거부(`src/temporary-deny.mjs`)에는 연결하지 않았습니다.

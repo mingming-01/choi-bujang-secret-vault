@@ -1,0 +1,219 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "known-cve",
+  "decisions": [
+    {
+      "alertId": "kc-01",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-04",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-05",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-07",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "jndi-lookup: complete JNDI lookup string in 1 request field(s)"
+    },
+    {
+      "alertId": "kc-08",
+      "action": "block",
+      "confidence": 0.97,
+      "reason": "jndi-lookup: complete JNDI lookup string in 2 request field(s)"
+    },
+    {
+      "alertId": "kc-09",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "cve-id-text: incomplete or uncertain known-CVE signal"
+    },
+    {
+      "alertId": "kc-10",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "jndi-keyword: incomplete or uncertain known-CVE signal"
+    },
+    {
+      "alertId": "kc-11",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "elevated-level: no lookup syntax but rule level 7"
+    },
+    {
+      "alertId": "kc-12",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "elevated-level: no lookup syntax but rule level 6"
+    },
+    {
+      "alertId": "kc-13",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "elevated-level: no lookup syntax but rule level 5"
+    },
+    {
+      "alertId": "kc-14",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "elevated-level: no lookup syntax but rule level 7"
+    },
+    {
+      "alertId": "kc-15",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "lookup-fragment: incomplete or uncertain known-CVE signal"
+    },
+    {
+      "alertId": "kc-16",
+      "action": "alert",
+      "confidence": 0.6,
+      "reason": "cve-id-text: incomplete or uncertain known-CVE signal"
+    },
+    {
+      "alertId": "kc-17",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-18",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-19",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-20",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-21",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-22",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-23",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    },
+    {
+      "alertId": "kc-24",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no known-CVE signal"
+    }
+  ],
+  "counts": {
+    "block": 8,
+    "alert": 8,
+    "record": 8
+  },
+  "response": {
+    "candidateRules": [
+      {
+        "action": "deny",
+        "source": "203.0.113.10",
+        "expiresAt": "2026-09-27T00:44:02.000Z",
+        "sourceAlert": "kc-01",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "203.0.113.10",
+        "expiresAt": "2026-09-27T00:44:18.000Z",
+        "sourceAlert": "kc-02",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "198.51.100.16",
+        "expiresAt": "2026-09-27T00:47:06.000Z",
+        "sourceAlert": "kc-03",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "192.0.2.16",
+        "expiresAt": "2026-09-27T01:34:22.000Z",
+        "sourceAlert": "kc-04",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "203.0.113.24",
+        "expiresAt": "2026-09-27T01:51:09.000Z",
+        "sourceAlert": "kc-05",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "198.51.100.24",
+        "expiresAt": "2026-09-27T02:38:41.000Z",
+        "sourceAlert": "kc-06",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "192.0.2.24",
+        "expiresAt": "2026-09-27T04:36:15.000Z",
+        "sourceAlert": "kc-07",
+        "patternId": "jndi-lookup"
+      },
+      {
+        "action": "deny",
+        "source": "203.0.113.31",
+        "expiresAt": "2026-09-27T05:49:03.000Z",
+        "sourceAlert": "kc-08",
+        "patternId": "jndi-lookup"
+      }
+    ],
+    "blockedCandidates": 8,
+    "skippedInvalidTimestamp": 0,
+    "skippedInvalidSource": 0,
+    "appliedToZtna": true
+  }
+}
