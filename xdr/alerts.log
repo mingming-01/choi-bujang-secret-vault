@@ -141,3 +141,7 @@ timestamp=2026-09-27T10:44:18+09:00 alert=wi-12 action=alert source=192.0.2.41 e
 {"timestamp":"2026-09-27T05:16:29.000Z","moduleKey":"privilege","alertId":"pv-07","action":"block","sourceAddress":"192.0.2.17","expiresAt":"2026-10-17T13:55:54.071Z","patternId":"administrator-group-addition","outcome":"deny_candidate"}
 {"timestamp":"2026-09-27T06:02:18.000Z","moduleKey":"privilege","alertId":"pv-08","action":"block","sourceAddress":"203.0.113.27","expiresAt":"2026-10-17T13:55:54.071Z","patternId":"unfamiliar-admin-command","outcome":"deny_candidate"}
 {"timestamp":"2026-09-27T06:33:07.000Z","moduleKey":"privilege","alertId":"pv-09","action":"block","sourceAddress":"198.51.100.27","expiresAt":"2026-10-17T13:55:54.071Z","patternId":"administrator-group-addition","outcome":"deny_candidate"}
+{"timestamp":"2026-09-27T01:14:33.000Z","moduleKey":"privilege","alertId":"pv-11","action":"alert","sourceAddress":"198.51.100.54","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T02:21:16.000Z","moduleKey":"privilege","alertId":"pv-13","action":"alert","sourceAddress":"192.0.2.55","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T04:17:05.000Z","moduleKey":"privilege","alertId":"pv-15","action":"alert","sourceAddress":"203.0.113.55","expiresAt":null,"patternId":null,"outcome":"alert_only"}
+{"timestamp":"2026-09-27T06:19:41.000Z","moduleKey":"privilege","alertId":"pv-17","action":"alert","sourceAddress":"198.51.100.56","expiresAt":null,"patternId":null,"outcome":"alert_only"}
