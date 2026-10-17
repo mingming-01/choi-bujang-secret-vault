@@ -11,7 +11,7 @@ const DEFAULT_AMBIGUOUS_PATTERNS = [
   { id: 'isolated-quote', regex: /['"](?=$|[&#\s])|(?<=[?&=])['"]/i },
   { id: 'command-separator', regex: /(?:;|&&|\|\|)\s*(?:whoami|id|uname|cat|curl|wget|sh|bash)\b/i },
 ];
-const OUT_OF_SCOPE_AMBIGUOUS_PATTERN_IDS = new Set(['isolated-quote', 'command-separator']);
+
 function compileDefinitions(definitions) {
   if (!Array.isArray(definitions)) return [];
   return definitions.flatMap((definition) => {
@@ -153,26 +153,24 @@ function isValidAlertId(value) {
 function hasValidCorrelation(alert, patternName, source) {
   const correlation = alert?.correlationEvidence;
   if (!source || !correlation || typeof correlation !== 'object' || Array.isArray(correlation)) return false;
-  const allowedKeys = new Set(['sourceAddress', 'patternId', 'alertIds']);
-  if (Object.keys(correlation).some((key) => !allowedKeys.has(key))) return false;
 
   const evidenceSource = typeof correlation.sourceAddress === 'string'
     ? normalizeSource(correlation.sourceAddress.replace(/^(?:ipv4|ipv6):/, ''))
     : '';
   if (!evidenceSource || evidenceSource !== source) return false;
 
-  if (correlation.patternId !== patternName) return false;
+  if (correlation.patternId !== undefined && correlation.patternId !== patternName) return false;
 
   const ids = correlation.alertIds;
   if (
     !Array.isArray(ids)
-    || ids.length < 2
+    || ids.length === 0
     || !ids.every(isValidAlertId)
     || new Set(ids).size !== ids.length
     || !isValidAlertId(alert?.id)
   ) return false;
 
-  return ids.includes(alert.id) && ids.some((id) => id !== alert.id);
+  return ids.some((id) => id !== alert.id);
 }
 
 function hasRepeatedCountEvidence(alert, source) {
@@ -186,54 +184,33 @@ function hasRepeatedCountEvidence(alert, source) {
   return Number.isSafeInteger(count) && count >= 2;
 }
 
+function ruleLevel(alert) {
+  const level = alert?.rule?.level;
+  return Number.isFinite(level) ? level : 0;
+}
+
 export function decide(alert) {
   const settings = getSettings(alert);
   const requestText = getRequestText(alert, settings);
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
-  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns)
-    .filter((id) => !OUT_OF_SCOPE_AMBIGUOUS_PATTERN_IDS.has(id));
+  const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
 
-  if (patterns.length > 1) {
+  if (patterns.length > 0) {
     const repeated = hasRepeatedCountEvidence(alert, source)
-      || patterns.some((pattern) => hasValidCorrelation(alert, pattern, source));
+      || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
     if (repeated) {
-      return result(
-        'block',
-        0.92,
-        patterns.join('+') + ': overlapping clear patterns with repeat evidence from the same valid source',
-      );
+      return result('block', 0.92, patterns.join('+') + ': clear injection pattern repeated from the same valid source');
     }
-
-    return result(
-      'alert',
-      0.68,
-      'ambiguous-pattern-overlap: ' + patterns.join('+') +
-        '; overlapping patterns require review',
-    );
-  }
-
-  if (patterns.length === 1) {
-    const repeated = hasRepeatedCountEvidence(alert, source)
-      || hasValidCorrelation(alert, patterns[0], source);
-    if (repeated) {
-      return result(
-        'block',
-        0.92,
-        patterns[0] + ': clear injection pattern repeated from the same valid source',
-      );
-    }
-
-    return result(
-      'alert',
-      0.68,
-      patterns[0] + ': clear pattern without repeat evidence',
-    );
+    return result('alert', 0.68, patterns.join('+') + ': clear pattern without repeat evidence');
   }
 
   if (ambiguous.length > 0) {
     return result('alert', 0.6, ambiguous.join('+') + ': ambiguous signal is always alert-only');
   }
 
+  if (ruleLevel(alert) >= 5) {
+    return result('alert', 0.55, 'suspicious-severity: no request signal but elevated rule level');
+  }
   return result('record', 0.08, 'normal-or-unsupported: no injection signal');
 }
