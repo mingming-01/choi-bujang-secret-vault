@@ -173,15 +173,14 @@ function hasValidCorrelation(alert, patternName, source) {
   return ids.some((id) => id !== alert.id);
 }
 
-function hasRepeatedCountEvidence(alert, source) {
-  if (!source) return false;
+function repeatCount(alert) {
   const raw = alert?.data?.count;
   const count = typeof raw === 'number'
     ? raw
     : typeof raw === 'string' && /^\d+$/.test(raw.trim())
       ? Number(raw.trim())
-      : NaN;
-  return Number.isSafeInteger(count) && count >= 2;
+      : 0;
+  return Number.isSafeInteger(count) ? count : 0;
 }
 
 function ruleLevel(alert) {
@@ -195,22 +194,17 @@ export function decide(alert) {
   const source = getValidSource(alert);
   const patterns = matchingIds(requestText, settings.patterns);
   const ambiguous = matchingIds(requestText, settings.ambiguousPatterns);
+  const level = ruleLevel(alert);
+  const clear = patterns.length > 0;
+  const repeated = (Boolean(source) && repeatCount(alert) >= 2)
+    || patterns.some((id) => hasValidCorrelation(alert, id, source));
 
-  if (patterns.length > 0) {
-    const repeated = hasRepeatedCountEvidence(alert, source)
-      || (patterns.length === 1 && hasValidCorrelation(alert, patterns[0], source));
-    if (repeated) {
-      return result('block', 0.92, patterns.join('+') + ': clear injection pattern repeated from the same valid source');
-    }
-    return result('alert', 0.68, patterns.join('+') + ': clear pattern without repeat evidence');
+  if (repeated && (clear || level >= 10)) {
+    const name = clear ? patterns.join('+') : 'repeated-high-severity';
+    return result('block', 0.92, name + ': repeated from the same valid source');
   }
-
-  if (ambiguous.length > 0) {
-    return result('alert', 0.6, ambiguous.join('+') + ': ambiguous signal is always alert-only');
-  }
-
-  if (ruleLevel(alert) >= 5) {
-    return result('alert', 0.55, 'suspicious-severity: no request signal but elevated rule level');
-  }
-  return result('record', 0.08, 'normal-or-unsupported: no injection signal');
+  if (clear) return result('alert', 0.68, patterns.join('+') + ': clear pattern without repeat evidence');
+  if (ambiguous.length > 0) return result('alert', 0.6, ambiguous.join('+') + ': ambiguous signal');
+  if (level >= 5) return result('alert', 0.55, 'elevated-level: weak signal without repeat');
+  return result('record', 0.08, 'normal-or-unsupported: no signal');
 }
