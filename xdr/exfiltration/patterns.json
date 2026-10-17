@@ -1,0 +1,18 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "exfiltration",
+  "patterns": [
+    {
+      "id": "large-unfamiliar-destination-transfer",
+      "name": "처음 보는 목적지로 대용량 전송",
+      "condition": "처음 보는 목적지라는 신호와 함께 짧은 시간에 많은 자료가 전송되거나 대용량 전송이 반복된다.",
+      "basis": "MITRE ATT&CK T1041: 공격자는 기존 명령·제어(C2) 통로를 통해 자료를 반출할 수 있다."
+    },
+    {
+      "id": "off-hours-archive-exfiltration",
+      "name": "업무 시간 밖 압축 파일 반출",
+      "condition": "업무 또는 수업 시간 밖이라는 신호와 압축 파일의 외부 전송 정황이 함께 나타난다.",
+      "basis": "MITRE ATT&CK T1048: 공격자는 기존 C2 통로와 다른 네트워크 프로토콜을 이용해 자료를 반출할 수 있다."
+    }
+  ]
+}

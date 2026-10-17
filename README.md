@@ -328,3 +328,12 @@ npm run xdr:run -- web-injection
 - `xdr/privilege/decide.mjs`는 독립 판정 모듈이며, `respond.mjs`는 `block` 결과의 임시 거부 후보와 알림 로그를 관리합니다.
 - 임시 거부 후보는 실행 시점부터 30분간 유효하며, `src/temporary-deny.mjs`에서 `/api/notes`의 기존 접근 검사와 연결됩니다.
 - 현재 연결은 출발지 IP 기반 임시 거부입니다. 가상 계정과 검증된 로그인 UUID 간 연결이 없어 실제 계정 세션 폐기 기능은 구현하지 않았습니다.
+
+## 보너스 XDR 06: 자료 유출 탐지
+
+- `xdr/exfiltration/read-alerts.mjs`는 원본 fixture를 수정하지 않고 경보의 시각, 출발 주소, 계정, 규칙 수준, 설명만 추출합니다.
+- `xdr/exfiltration/patterns.json`과 `decide.mjs`는 대용량 유출 및 업무 시간 밖 압축 파일 반출 신호를 판별합니다. 판정기는 외부 모듈이나 파일 입출력 없이 동작합니다.
+- `respond.mjs`는 확신도 0.85 이상의 차단 판정에만 최대 30분짜리 거부 후보를 만들고, 경보 기록은 `xdr/alerts.log`에 중복을 피해서 추가합니다.
+- `scripts/xdr-run.mjs`는 응답 후보를 `result.json`에 기록하며, `src/temporary-deny.mjs`는 기존 API 요청 검사에서 만료되지 않은 유출 후보를 확인합니다. 이 연결은 출발 IP를 기준으로 API 요청을 임시 거부하는 방식이며, 네트워크 출구 자체를 차단하는 방화벽은 아닙니다.
+- 다시 실행: `npm run xdr:run -- exfiltration`
+- 현재 가상 fixture의 로컬 결과는 `block 10 / alert 10 / record 10`이며 정상 이벤트의 차단은 0건입니다. 이는 로컬 연습 결과이고 공식 심판 판정은 아닙니다.

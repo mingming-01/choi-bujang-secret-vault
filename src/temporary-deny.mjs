@@ -4,6 +4,7 @@ const RULES_RESULT = new URL('../xdr/web-injection/result.json', import.meta.url
 const PATTERNS_FILE = new URL('../xdr/web-injection/patterns.json', import.meta.url);
 const PERSISTENCE_RESULT = new URL('../xdr/persistence/result.json', import.meta.url);
 const PRIVILEGE_RESULT = new URL('../xdr/privilege/result.json', import.meta.url);
+const EXFILTRATION_RESULT = new URL('../xdr/exfiltration/result.json', import.meta.url);
 
 function parseIpv4(value) {
   const parts = value.split('.');
@@ -151,6 +152,38 @@ export function isDeniedByPrivilegeRules(request, rules, now = Date.now()) {
   });
 }
 
+export function isDeniedByExfiltrationRules(request, rules, now = Date.now()) {
+  const source = getRequestSource(request);
+
+  if (!source || !Number.isFinite(now) || !Array.isArray(rules)) {
+    return false;
+  }
+
+  const allowedPatterns = [
+    'large-unfamiliar-destination-transfer',
+    'off-hours-archive-exfiltration',
+  ];
+
+  return rules.some((rule) => {
+    if (
+      rule?.action !== 'deny'
+      || rule?.moduleKey !== 'exfiltration'
+      || normalizeSource(rule.source) !== source
+      || typeof rule.sourceAlert !== 'string'
+      || rule.sourceAlert.length === 0
+      || !allowedPatterns.includes(rule.patternId)
+    ) {
+      return false;
+    }
+
+    const expiresAt = typeof rule.expiresAt === 'string'
+      ? Date.parse(rule.expiresAt)
+      : NaN;
+
+    return Number.isFinite(expiresAt) && expiresAt > now;
+  });
+}
+
 export async function isTemporarilyDenied(request, now = Date.now()) {
   try {
     const [result, patterns] = await Promise.all([
@@ -182,6 +215,20 @@ export async function isTemporarilyDenied(request, now = Date.now()) {
     }
   } catch {
     // persistence 결과가 없으면 privilege 검사로 넘어갑니다.
+  }
+
+  try {
+    const result = await readFile(EXFILTRATION_RESULT, 'utf8').then(JSON.parse);
+
+    if (isDeniedByExfiltrationRules(
+      request,
+      result?.response?.candidateRules,
+      now,
+    )) {
+      return true;
+    }
+  } catch {
+    // 유출 결과가 없으면 기존 거부 검사로 넘어갑니다.
   }
 
   try {
