@@ -297,3 +297,28 @@ node --test test/device-approval.test.mjs test/war-room.test.mjs test/war-room-e
 - `xdr/known-cve/respond.mjs`: block 만 만료 시각이 있는 거부 후보로 만들고 `xdr/alerts.log` 에 한 줄씩 기록합니다.
 - `node xdr/known-cve/read-alerts.mjs`: 확인용 읽기 도구이며 decide 가 불러오지 않습니다.
 - 아직 판정기의 임시 거부(`src/temporary-deny.mjs`)에는 연결하지 않았습니다.
+
+
+
+## XDR 보너스 4: 몰래 심어진 프로그램 탐지
+
+- `xdr/fixtures/persistence.json`의 24개 가상 경보를 대상으로 지속성 관련 신호를 분류합니다.
+- `xdr/persistence/read-alerts.mjs`는 시각, 출발 주소, 계정, 규칙 수준, 설명을 출력합니다.
+- `patterns.json`은 서명 없는 서비스, 수상한 예약 작업, 시작 폴더 변경의 증거 패턴을 정의합니다.
+- `decide.mjs`는 명확한 신호를 차단, 애매한 신호를 경고, 정상 이벤트를 기록으로 분류합니다. 판정 함수는 파일이나 네트워크를 읽지 않습니다.
+- `respond.mjs`는 유효한 출처와 시각이 있는 차단 판정에 대해 30분 임시 차단 후보를 만들고, 경보 참조와 패턴 ID를 기록합니다.
+- `scripts/xdr-run.mjs`와 `src/temporary-deny.mjs`는 persistence 응답 결과를 기존 임시 차단 검사에 연결합니다. 기존 웹 주입 검사도 유지합니다.
+- `xdr/alerts.log`에는 persistence의 경고·차단 결과를 JSONL로 추가합니다. 동일한 로그 행은 중복 기록하지 않습니다.
+
+로컬 확인 명령:
+
+```sh
+node xdr/persistence/read-alerts.mjs
+npm run xdr:run -- persistence
+npm run xdr:run -- web-injection
+```
+
+최근 로컬 persistence 판정 결과는 `block: 8`, `alert: 8`, `record: 8`이며, 웹 주입 회귀 결과는 `block: 8`, `alert: 9`, `record: 9`입니다. 이는 로컬 검증 결과이며 공식 심판 판정은 아닙니다.
+
+**주의:** fixture의 경보 시각은 2026년 9월 27일이므로, 이 경보들로 생성한 30분 만료 차단 후보는 현재 만료된 상태입니다.
+

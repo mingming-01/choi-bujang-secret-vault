@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 const RULES_RESULT = new URL('../xdr/web-injection/result.json', import.meta.url);
 const PATTERNS_FILE = new URL('../xdr/web-injection/patterns.json', import.meta.url);
+const PERSISTENCE_RESULT = new URL('../xdr/persistence/result.json', import.meta.url);
 
 function parseIpv4(value) {
   const parts = value.split('.');
@@ -84,16 +85,67 @@ export function isDeniedByTemporaryRules(request, rules, patterns, now = Date.no
   });
 }
 
+export function isDeniedByPersistenceRules(request, rules, now = Date.now()) {
+  const source = getRequestSource(request);
+
+  if (!source || !Number.isFinite(now) || !Array.isArray(rules)) {
+    return false;
+  }
+
+  const allowedPatterns = [
+    'unsigned-new-service',
+    'unusual-scheduled-task',
+    'startup-folder-change',
+  ];
+
+  return rules.some((rule) => {
+    if (
+      rule?.action !== 'deny'
+      || rule?.moduleKey !== 'persistence'
+      || normalizeSource(rule.source) !== source
+      || typeof rule.sourceAlert !== 'string'
+      || rule.sourceAlert.length === 0
+      || !allowedPatterns.includes(rule.patternId)
+    ) {
+      return false;
+    }
+
+    const expiresAt = typeof rule.expiresAt === 'string'
+      ? Date.parse(rule.expiresAt)
+      : NaN;
+
+    return Number.isFinite(expiresAt) && expiresAt > now;
+  });
+}
+
 export async function isTemporarilyDenied(request, now = Date.now()) {
-  let result;
-  let patterns;
   try {
-    [result, patterns] = await Promise.all([
+    const [result, patterns] = await Promise.all([
       readFile(RULES_RESULT, 'utf8').then(JSON.parse),
       readFile(PATTERNS_FILE, 'utf8').then(JSON.parse),
     ]);
+
+    if (isDeniedByTemporaryRules(
+      request,
+      result?.response?.candidateRules,
+      patterns,
+      now,
+    )) {
+      return true;
+    }
+  } catch {
+    // 웹 주입 결과를 읽지 못해도 persistence 검사는 계속합니다.
+  }
+
+  try {
+    const result = await readFile(PERSISTENCE_RESULT, 'utf8').then(JSON.parse);
+
+    return isDeniedByPersistenceRules(
+      request,
+      result?.response?.candidateRules,
+      now,
+    );
   } catch {
     return false;
   }
-  return isDeniedByTemporaryRules(request, result?.response?.candidateRules, patterns, now);
 }

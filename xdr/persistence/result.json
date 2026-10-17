@@ -1,0 +1,227 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "persistence",
+  "decisions": [
+    {
+      "alertId": "ps-01",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "unsigned-new-service: unsigned service points to a temporary executable"
+    },
+    {
+      "alertId": "ps-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "unusual-scheduled-task: unfamiliar scheduled task runs a temporary executable outside class time"
+    },
+    {
+      "alertId": "ps-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "startup-folder-change: unrecognized program added to the startup folder"
+    },
+    {
+      "alertId": "ps-04",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "unsigned-service-burst: repeated unsigned service registrations with a matching event count"
+    },
+    {
+      "alertId": "ps-05",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "random-scheduled-task: random-looking scheduled task launches a temporary executable"
+    },
+    {
+      "alertId": "ps-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "unsigned-service-update: service executable changed and is reported unsigned"
+    },
+    {
+      "alertId": "ps-07",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "shared-persistence-file: startup entry and scheduled task point to the same temporary executable"
+    },
+    {
+      "alertId": "ps-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "persistent-unknown-service: unrecognized service is configured to persist after restart"
+    },
+    {
+      "alertId": "ps-09",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "unconfirmed-signature: signature is unconfirmed and additional evidence is needed"
+    },
+    {
+      "alertId": "ps-10",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "unconfirmed-signature: signature is unconfirmed and additional evidence is needed"
+    },
+    {
+      "alertId": "ps-11",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single-or-benign-looking-change: single change or weak signal needs further review"
+    },
+    {
+      "alertId": "ps-12",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single-or-benign-looking-change: single change or weak signal needs further review"
+    },
+    {
+      "alertId": "ps-13",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single-or-benign-looking-change: single change or weak signal needs further review"
+    },
+    {
+      "alertId": "ps-14",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single-or-benign-looking-change: single change or weak signal needs further review"
+    },
+    {
+      "alertId": "ps-15",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single-or-benign-looking-change: single change or weak signal needs further review"
+    },
+    {
+      "alertId": "ps-16",
+      "action": "alert",
+      "confidence": 0.65,
+      "reason": "single-or-benign-looking-change: single change or weak signal needs further review"
+    },
+    {
+      "alertId": "ps-17",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-18",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-19",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-20",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-21",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-22",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-23",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    },
+    {
+      "alertId": "ps-24",
+      "action": "record",
+      "confidence": 0.08,
+      "reason": "normal-or-unsupported: no clear persistence evidence"
+    }
+  ],
+  "counts": {
+    "block": 8,
+    "alert": 8,
+    "record": 8
+  },
+  "response": {
+    "candidateRules": [
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "203.0.113.12",
+        "expiresAt": "2026-09-27T00:48:04.000Z",
+        "sourceAlert": "ps-01",
+        "patternId": "unsigned-new-service"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "203.0.113.12",
+        "expiresAt": "2026-09-27T00:49:12.000Z",
+        "sourceAlert": "ps-02",
+        "patternId": "unusual-scheduled-task"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "198.51.100.12",
+        "expiresAt": "2026-09-27T01:36:28.000Z",
+        "sourceAlert": "ps-03",
+        "patternId": "startup-folder-change"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "192.0.2.12",
+        "expiresAt": "2026-09-27T01:52:03.000Z",
+        "sourceAlert": "ps-04",
+        "patternId": "unsigned-new-service"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "203.0.113.19",
+        "expiresAt": "2026-09-27T02:39:17.000Z",
+        "sourceAlert": "ps-05",
+        "patternId": "unusual-scheduled-task"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "198.51.100.19",
+        "expiresAt": "2026-09-27T04:37:45.000Z",
+        "sourceAlert": "ps-06",
+        "patternId": "unsigned-new-service"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "192.0.2.19",
+        "expiresAt": "2026-09-27T05:44:08.000Z",
+        "sourceAlert": "ps-07",
+        "patternId": "startup-folder-change"
+      },
+      {
+        "action": "deny",
+        "moduleKey": "persistence",
+        "source": "203.0.113.33",
+        "expiresAt": "2026-09-27T06:58:31.000Z",
+        "sourceAlert": "ps-08",
+        "patternId": "unsigned-new-service"
+      }
+    ],
+    "blockedCandidates": 8,
+    "skippedInvalidTimestamp": 0,
+    "skippedInvalidSource": 0,
+    "appliedToZtna": true
+  }
+}
